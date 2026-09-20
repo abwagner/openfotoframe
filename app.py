@@ -19,7 +19,7 @@ import logging
 import base64
 import warnings
 from ipaddress import ip_address
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlencode
 from datetime import datetime
 from pathlib import Path
 from functools import wraps
@@ -157,6 +157,32 @@ except OSError:
 _device_codes = {}  # code -> {expires_at, approved, approved_by}
 _DEVICE_CODE_TTL = 300  # 5 minutes
 _BEHIND_PROXY = os.environ.get('BEHIND_PROXY', '').lower() in ('1', 'true')
+
+
+def _parse_authelia_user_map(value):
+    """Parse ``external_user=local_user`` pairs from the environment."""
+    mapping = {}
+    for pair in (value or '').split(','):
+        if '=' not in pair:
+            continue
+        external, local = (part.strip().lower() for part in pair.split('=', 1))
+        if external and local:
+            mapping[external] = local
+    return mapping
+
+
+def _parse_authelia_groups(value):
+    """Parse a comma-separated Authelia group list."""
+    return {group.strip().lower() for group in (value or '').split(',') if group.strip()}
+
+
+# Authelia is intentionally opt-in. It is safe to trust these headers only when
+# Flask is reachable exclusively through the configured trusted reverse proxy.
+AUTHELIA_URL = os.environ.get('AUTHELIA_URL', '').strip().rstrip('/')
+AUTHELIA_USER_MAP = _parse_authelia_user_map(os.environ.get('AUTHELIA_USER_MAP', ''))
+AUTHELIA_ADMIN_GROUPS = _parse_authelia_groups(
+    os.environ.get('AUTHELIA_ADMIN_GROUPS', 'admins')
+)
 
 def _cleanup_device_codes():
     now = time.time()
@@ -386,6 +412,10 @@ has_default_password = user_requires_password_change
 
 def get_user_role(username: str) -> str:
     """Get user's role"""
+    if (has_request_context()
+            and session.get('auth_provider') == 'authelia'
+            and session.get('username') == username):
+        return session.get('auth_role', 'user')
     users = load_users()
     if username in users:
         return users[username].get('role', 'user')
@@ -463,6 +493,8 @@ load_users()
 
 def is_authenticated():
     """Check if current session is authenticated"""
+    if _BEHIND_PROXY and AUTHELIA_URL and session.get('auth_provider') != 'authelia':
+        return False
     return session.get('authenticated', False)
 
 
@@ -490,6 +522,75 @@ def has_valid_display_session():
 def display_access_ok():
     """Authorize display reads without trusting hostnames or URL credentials."""
     return request_is_loopback() or has_valid_display_session() or is_authenticated()
+
+
+def authelia_enabled():
+    """Return whether the application should use the proxy's Authelia identity."""
+    return _BEHIND_PROXY and bool(AUTHELIA_URL)
+
+
+def authelia_identity():
+    """Return the mapped local identity supplied by a trusted Authelia proxy."""
+    if not authelia_enabled():
+        return None
+
+    external_username = request.headers.get('Remote-User', '').strip().lower()
+    if not external_username:
+        return None
+
+    local_username = AUTHELIA_USER_MAP.get(external_username, external_username)
+    if local_username not in load_users():
+        return None
+    return external_username, local_username
+
+
+def authelia_request_groups():
+    """Return the groups asserted by the trusted Authelia forward-auth response."""
+    return _parse_authelia_groups(request.headers.get('Remote-Groups', ''))
+
+
+def authelia_redirect_url(path='/upload'):
+    """Build an Authelia portal URL with a safe same-host return destination."""
+    if not isinstance(path, str) or not path.startswith('/') or path.startswith('//'):
+        path = '/upload'
+    return f'{AUTHELIA_URL}/?{urlencode({"rd": request.host_url.rstrip("/") + path, "rm": "GET"})}'
+
+
+@app.before_request
+def establish_authelia_session():
+    """Bridge a successful Authelia check into the app's signed session cookie."""
+    if not authelia_enabled():
+        return None
+
+    external_identity = request.headers.get('Remote-User', '').strip().lower()
+    if not external_identity:
+        return None
+
+    identity = authelia_identity()
+    if identity is None:
+        # An authenticated proxy identity without a local account must not fall
+        # through to the local login form or create an unintended account.
+        return jsonify({'error': 'Authelia identity is not mapped to an application user'}), 403
+
+    external_username, local_username = identity
+    groups = authelia_request_groups()
+    auth_role = 'admin' if groups.intersection(AUTHELIA_ADMIN_GROUPS) else 'user'
+    if (session.get('auth_provider') == 'authelia'
+            and session.get('username') == local_username):
+        session['authelia_groups'] = sorted(groups)
+        session['auth_role'] = auth_role
+        return None
+
+    session.clear()
+    session.permanent = True
+    session['authenticated'] = True
+    session['username'] = local_username
+    session['auth_provider'] = 'authelia'
+    session['authelia_groups'] = sorted(groups)
+    session['auth_role'] = auth_role
+    log_security_event('authelia_login', True, username=local_username,
+                       external_username=external_username)
+    return None
 
 
 def display_api_required(f):
@@ -536,7 +637,9 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if not is_authenticated():
             return redirect(url_for('login', next=request.path))
-        if has_default_password(session.get('username')) and request.path != '/change-password':
+        if (not (authelia_enabled() and session.get('auth_provider') == 'authelia')
+                and has_default_password(session.get('username'))
+                and request.path != '/change-password'):
             return redirect(url_for('change_password', forced=1))
         if session.get('mfa_enrollment_required') and not request.path.startswith('/mfa'):
             return redirect(url_for('mfa_page'))
@@ -1447,6 +1550,10 @@ def login():
     if is_authenticated():
         return redirect(url_for('upload_page'))
 
+    if authelia_enabled():
+        next_path = request.args.get('next', '') or request.form.get('next', '')
+        return redirect(authelia_redirect_url(next_path))
+
     if request.method == 'POST':
         username = request.form.get('username', '').strip().lower()
         password = request.form.get('password', '')
@@ -1484,6 +1591,8 @@ def login():
 def logout():
     """Logout and clear session"""
     session.clear()
+    if authelia_enabled():
+        return redirect(f'{AUTHELIA_URL}/logout?{urlencode({"rd": request.host_url.rstrip("/") + "/login"})}')
     return redirect(url_for('login'))
 
 
@@ -2229,7 +2338,9 @@ def _auto_pair_portraits(slides):
 
     Collects every portrait single (regardless of adjacency), pairs them in order
     of their position in the shuffled list, and replaces the first portrait's slot
-    with the pair. The second portrait's original slot is removed.
+    with the pair. The second portrait's original slot is removed. Auto-pairs use
+    a normalized effective scale so their rendered heights match; the original
+    per-image scale values remain unchanged in the gallery.
     """
     portrait_indices = [
         idx for idx, slide in enumerate(slides)
@@ -2245,13 +2356,21 @@ def _auto_pair_portraits(slides):
         i, j = portrait_indices[k], portrait_indices[k + 1]
         img1 = slides[i]['images'][0]
         img2 = slides[j]['images'][0]
+        # Group-row rendering uses scale as a relative height multiplier. Reset
+        # only the synthetic pair's effective scales so both photos share the
+        # same height; their aspect ratios still determine their widths.
+        pair_images = []
+        for image in (img1, img2):
+            pair_image = dict(image)
+            pair_image['scale'] = 1.0
+            pair_images.append(pair_image)
         pair_key = img1['filename'] + '|' + img2['filename']
         synthetic_id = '__pair_' + hashlib.sha1(pair_key.encode()).hexdigest()[:16]
         paired_indices.update([i, j])
         pair_insertions[i] = {
             'type': 'group',
             'group_id': synthetic_id,
-            'images': [img1, img2],
+            'images': pair_images,
             'mat_color': img1.get('mat_color') or img2.get('mat_color'),
         }
 
@@ -2268,20 +2387,25 @@ def _ensure_auto_pair_snapshots(slides, force=False):
     """Generate missing synthetic portrait-pair snapshots, or refresh all when forced.
 
     Runs in a background thread; safe to call on every state poll since it's a no-op
-    when the snapshot file already exists unless ``force`` is requested.
+    when the profile-specific snapshot files already exist unless ``force`` is
+    requested.
     """
     settings = load_settings()
-    pair_slides = [
-        s for s in slides
-        if s['type'] == 'group'
-        and s.get('group_id', '').startswith('__pair_')
-        and (force or not (SNAPSHOT_FOLDER / f"{s['group_id']}.display.png").exists())
-    ]
-    for slide in pair_slides:
-        try:
-            _render_pair_slide_snapshot(slide, settings, UPLOAD_FOLDER, SNAPSHOT_FOLDER)
-        except Exception as e:
-            logging.warning('Auto-pair snapshot failed for %s: %s', slide.get('group_id'), e)
+    pair_slides = [s for s in slides
+                   if s['type'] == 'group'
+                   and s.get('group_id', '').startswith('__pair_')]
+    for profile in display_profiles(settings, active_only=True):
+        profile_settings = display_settings(settings, profile)
+        for slide in pair_slides:
+            path = SNAPSHOT_FOLDER / f"{slide['group_id']}.{profile['id']}.display.png"
+            if not force and path.exists():
+                continue
+            try:
+                _render_pair_slide_snapshot(slide, profile_settings,
+                                            UPLOAD_FOLDER, SNAPSHOT_FOLDER)
+            except Exception as e:
+                logging.warning('Auto-pair snapshot failed for %s (%s): %s',
+                                slide.get('group_id'), profile['id'], e)
 
 
 def _build_slides():

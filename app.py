@@ -35,6 +35,7 @@ import io
 import colorsys
 import qrcode
 import qrcode.image.svg
+from artwork_catalog import catalog as artwork_catalog, validate_content, resolve_art
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -1051,6 +1052,7 @@ def _legacy_display(settings):
 
 def display_profiles(settings, active_only=False):
     profiles = settings.get("displays") or [_legacy_display(settings)]
+    profiles = [{**p, "content": validate_content(p.get("content", {}))} for p in profiles]
     return [p for p in profiles if p.get("active", True)] if active_only else profiles
 
 def get_display_profile(settings, display_id=None):
@@ -1110,6 +1112,14 @@ def _get_effective_index(total_slides, state=None, settings=None):
 
 
 _independent_display_states = {}
+_art_display_states = {}
+
+
+def _art_state_response(profile):
+    state = _art_display_states.setdefault(profile['id'], {'paused': False})
+    return {"display": profile, "content_mode": "art", "paused": state['paused'],
+            "index": 0, "total": 0, "snapshot_url": None,
+            "art": resolve_art(profile['content'])}
 
 def _profile_state(profile):
     if profile.get("synchronized", True):
@@ -2835,6 +2845,12 @@ def api_rotate_display_secret():
     return response
 
 
+@app.route('/api/artworks')
+@display_api_required
+def api_artworks():
+    return jsonify({'artworks': artwork_catalog()})
+
+
 @app.route("/api/displays", methods=["GET", "POST"])
 @api_login_required
 def api_displays():
@@ -2845,6 +2861,10 @@ def api_displays():
     except (TypeError, ValueError): return jsonify({"error": "Width and height must be numbers"}), 400
     if not 100 <= width <= 10000 or not 100 <= height <= 10000: return jsonify({"error": "Invalid display dimensions"}), 400
     profile = {"id": uuid.uuid4().hex[:12], "name": str(data.get("name") or "New display")[:80], "active": bool(data.get("active", True)), "width": width, "height": height, "synchronized": bool(data.get("synchronized", True))}
+    try:
+        profile['content'] = validate_content(data.get('content', {}))
+    except ValueError as error:
+        return jsonify({'error': str(error)}), 400
     settings["displays"] = profiles + [profile]; save_settings(settings)
     return jsonify({"display": profile}), 201
 
@@ -2854,18 +2874,34 @@ def api_display_profile(display_id):
     settings = load_settings(); profiles = display_profiles(settings)
     profile = next((p for p in profiles if p["id"] == display_id), None)
     if not profile: return jsonify({"error": "Display not found"}), 404
+    previous_mode = profile['content']['mode']
     if request.method == "DELETE":
         if len(profiles) == 1: return jsonify({"error": "At least one display is required"}), 400
         settings["displays"] = [p for p in profiles if p["id"] != display_id]; save_settings(settings)
+        _art_display_states.pop(display_id, None)
+        _independent_display_states.pop(display_id, None)
         return jsonify({"success": True})
     data = request.json or {}
+    if 'content' in data:
+        try:
+            profile['content'] = validate_content(data['content'], profile.get('content'))
+        except ValueError as error:
+            return jsonify({'error': str(error)}), 400
     for key in ("name", "active", "synchronized"):
         if key in data: profile[key] = str(data[key])[:80] if key == "name" else bool(data[key])
     for key in ("width", "height"):
         if key in data:
             try: profile[key] = int(data[key])
             except (TypeError, ValueError): return jsonify({"error": f"{key} must be a number"}), 400
+            if not 100 <= profile[key] <= 10000:
+                return jsonify({'error': 'Invalid display dimensions'}), 400
     if not any(p.get("active", True) for p in profiles): return jsonify({"error": "At least one display must remain active"}), 400
+    if previous_mode != profile['content']['mode'] and not profile.get('synchronized', True):
+        photo_state = _profile_state(profile)
+        if profile['content']['mode'] == 'art':
+            slides, _, _ = _build_slides()
+            photo_state['index'] = _get_effective_index(len(slides), photo_state, display_settings(settings, profile))
+        photo_state['last_advanced_at'] = time.time()
     settings["displays"] = profiles; save_settings(settings)
     return jsonify({"display": profile})
 
@@ -2875,6 +2911,8 @@ def api_display_state():
     """Return the current render for this display profile."""
     settings = load_settings()
     profile = get_display_profile(settings, request.args.get("display"))
+    if profile['content']['mode'] == 'art':
+        return jsonify(_art_state_response(profile))
     profile_settings = display_settings(settings, profile)
     state = _profile_state(profile)
     slides, _, _ = _build_slides()
@@ -2882,7 +2920,7 @@ def api_display_state():
     index = _get_effective_index(total, state, profile_settings)
     current_slide = slides[index] if total else None
     return jsonify({
-        "display": profile, "index": index, "paused": state["paused"], "total": total,
+        "display": profile, "content_mode": "photos", "index": index, "paused": state["paused"], "total": total,
         "snapshot_url": _profile_snapshot_url(current_slide, profile),
         "mat_color": (current_slide.get("mat_color") if current_slide else None) or profile_settings.get("mat_color", "#ffffff"),
         "transition_duration": profile_settings.get("transition_duration", 1),
@@ -2897,6 +2935,12 @@ def api_display_control():
         return jsonify({"error": "Invalid action. Use next, prev, pause, or play."}), 400
     settings = load_settings()
     profile = get_display_profile(settings, data.get("display") or request.args.get("display"))
+    if profile['content']['mode'] == 'art':
+        if action in ('next', 'prev'):
+            return jsonify({'error': 'Artwork navigation is unavailable for a single artwork'}), 400
+        state = _art_display_states.setdefault(profile['id'], {'paused': False})
+        state['paused'] = action == 'pause'
+        return jsonify(_art_state_response(profile))
     profile_settings = display_settings(settings, profile)
     state = _profile_state(profile)
     slides, _, _ = _build_slides()

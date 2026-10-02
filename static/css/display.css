@@ -253,3 +253,6 @@
         .control-btn:hover {
             background: rgba(0, 0, 0, 0.7);
         }
+
+#art-surface { position: fixed; inset: 0; background: #171411; }
+[hidden] { display: none !important; }

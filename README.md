@@ -8,6 +8,7 @@ The proposed multi-display allocator and aspect-aware rendering architecture is
 documented in [docs/MULTI_DISPLAY_DESIGN.md](docs/MULTI_DISPLAY_DESIGN.md).
 
 - **Web Upload Interface** - Upload photos from any device on your network
+- **Generated Art** - Select Organic Cells per display, with 12 colorways, custom cell palettes, and independent grout colors
 - **Multi-User Support** - Admin can create user accounts
 - **Gallery Management** - Show/hide photos, bulk actions, delete
 - **Password Protection** - Secure login with forced password change on first login
@@ -165,6 +166,25 @@ Settings are organized into two tabs in the sidebar:
 | **TV Power Schedule** | HDMI-CEC on/off times by day of week |
 
 Mat color, mat finish, border effect, and image scale can be overridden per image or per group from the upload page preview. Image cropping is also available per image.
+
+## Generated Art
+
+Open **Settings → Displays → Edit content** for a display and choose **Art**.
+Organic Cells animates locally in the browser and works with no photos or sensor.
+Select a colorway to set both cells and grout, or choose a cell palette and grout
+color independently. Custom cell palettes support 2–12 colors, with reorder controls.
+The live preview supports pointer interaction; click **Save content** to apply it
+on that display. Preview changes do not affect the TV until saved.
+
+The existing `/display?display=<id>` URL serves both photos and art. Pause/play
+freezes and resumes art independently of other displays. Switching back to Photos
+preserves art settings. Independent photo slideshows resume their stored position;
+synchronized photo displays rejoin the current shared slideshow position.
+
+Art uses bundled assets and keeps animating through a backend outage after it has
+loaded. Fresh startup needs the backend. Radar integration is planned separately;
+normal kiosk art currently runs in ambient mode. New artwork modules can be added
+through the catalog and shared lifecycle in `static/js/display-art.js`.
 
 ## TV Power Schedule (HDMI-CEC)
 

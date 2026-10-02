@@ -15,11 +15,12 @@
             <img id="slide-b" class="snapshot-img" alt="">
         </div>
     </div>
+    <div id="art-surface" hidden></div>
 
     <div class="controls">
-        <button class="control-btn" data-onclick="previousSlide()">← Prev</button>
+        <button class="control-btn" id="previous-btn" data-onclick="previousSlide()">← Prev</button>
         <button class="control-btn" id="pause-btn" data-onclick="togglePause()" aria-label="Pause slideshow">⏸ Pause</button>
-        <button class="control-btn" data-onclick="nextSlide()">Next →</button>
+        <button class="control-btn" id="next-btn" data-onclick="nextSlide()">Next →</button>
         <button class="control-btn" id="fullscreen-btn" data-onclick="toggleFullscreen()">⛶ Full</button>
     </div>
     <script src="{{ url_for('static', filename='js/display.js') }}" defer></script>

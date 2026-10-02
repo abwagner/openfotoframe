@@ -370,7 +370,35 @@
             activeDisplayId = (displayProfiles.find(d => d.active) || displayProfiles[0] || {}).id || null;
         }
 
-        function renderDisplayProfiles() { const list=document.getElementById("display-profiles-list"); if (!list) return; list.innerHTML=displayProfiles.map(d => `<div class="group-edit-item" style="flex-wrap:wrap"><b>${d.name}</b><label>Width <input id="display-width-${d.id}" type="number" value="${d.width}" style="width:88px"></label><label>Height <input id="display-height-${d.id}" type="number" value="${d.height}" style="width:88px"></label><button class="btn btn-edit" data-onclick="saveDisplayProfile('${d.id}')">Save</button><button class="btn btn-edit" data-onclick="toggleDisplayProfile('${d.id}', ${!d.active})">${d.active ? "Deactivate" : "Activate"}</button><a class="btn btn-edit" target="_blank" href="/display?display=${d.id}">Open</a><button class="btn btn-danger" data-onclick="deleteDisplayProfile('${d.id}')">Delete</button></div>`).join(""); }
+        let displayContentEditor = null;
+        let displayEditorGeneration = 0;
+        function closeDisplayContentEditor() {
+            displayEditorGeneration++;
+            displayContentEditor?.dispose();
+            displayContentEditor = null;
+        }
+        function renderDisplayProfiles() {
+            closeDisplayContentEditor();
+            const list = document.getElementById("display-profiles-list");
+            if (!list) return;
+            const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
+            list.innerHTML = displayProfiles.map(d => `<div class="group-edit-item" style="flex-wrap:wrap"><b>${escape(d.name)}</b><span>${d.content.mode === 'art' ? 'Art' : 'Photos'}</span><label>Width <input id="display-width-${escape(d.id)}" type="number" value="${d.width}" style="width:88px"></label><label>Height <input id="display-height-${escape(d.id)}" type="number" value="${d.height}" style="width:88px"></label><button class="btn btn-edit" data-onclick="saveDisplayProfile('${escape(d.id)}')">Save size</button><button class="btn btn-edit" data-content-display="${escape(d.id)}">Edit content</button><button class="btn btn-edit" data-onclick="toggleDisplayProfile('${escape(d.id)}', ${!d.active})">${d.active ? "Deactivate" : "Activate"}</button><a class="btn btn-edit" target="_blank" href="/display?display=${encodeURIComponent(d.id)}">Open</a><button class="btn btn-danger" data-onclick="deleteDisplayProfile('${escape(d.id)}')">Delete</button></div>`).join("");
+            list.querySelectorAll('[data-content-display]').forEach(button => button.addEventListener('click', async () => {
+                closeDisplayContentEditor();
+                const generation = displayEditorGeneration;
+                try {
+                    const [{ createArtEditor }, response] = await Promise.all([import('/static/js/art-editor.js'), fetch('/api/artworks')]);
+                    if (!response.ok) throw new Error('Could not load artworks');
+                    const catalog = await response.json();
+                    if (generation !== displayEditorGeneration) return;
+                    const profile = displayProfiles.find(d => d.id === button.dataset.contentDisplay);
+                    displayContentEditor = createArtEditor(document.getElementById('display-content-editor'), profile, catalog, {
+                        onClose: closeDisplayContentEditor,
+                        onSaved: async () => { await loadDisplayProfiles(); showStatus('Display content updated', 'success'); }
+                    });
+                } catch (error) { showStatus(error.message, 'error'); }
+            }));
+        }
         function applyDisplayPreset(value) { if (!value) return; const [width,height]=value.split("x"); document.getElementById("new-display-width").value=width; document.getElementById("new-display-height").value=height; }
         async function saveDisplayProfile(id) { const width=+document.getElementById(`display-width-${id}`).value, height=+document.getElementById(`display-height-${id}`).value; const r=await fetch(`/api/displays/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({width,height})}); if(!r.ok) return showStatus("Could not save display size","error"); await loadDisplayProfiles(); showStatus("Display size updated","success"); }
         async function createDisplayProfile() { const b={name:document.getElementById("new-display-name").value,width:+document.getElementById("new-display-width").value,height:+document.getElementById("new-display-height").value,synchronized:document.getElementById("new-display-sync").checked}; const r=await fetch("/api/displays",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}); if (!r.ok) return showStatus("Could not create display","error"); await loadDisplayProfiles(); renderDisplayProfiles(); }

@@ -10,6 +10,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>OpenFotoFrame</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/upload.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/art-editor.css') }}">
     <script src="{{ url_for('static', filename='js/legacy-events.js') }}" defer></script>
 </head>
 <body data-load-network-info="{{ 'true' if is_admin and password_changed else 'false' }}">
@@ -126,7 +127,7 @@
                         </div>
                     </div>
 
-                    <div class="settings-tab-content" id="tab-displays" style="display:none;"><div class="panel"><h2>Display Profiles</h2><p style="font-size:.8rem;color:#aaa">Choose a standard target or enter any custom pixel dimensions.</p><div id="display-profiles-list"></div><div class="setting-group"><label>New display name <input id="new-display-name" value="New display"></label><label>Standard display <select id="display-preset" data-onchange="applyDisplayPreset(this.value)"><option value="">Custom</option><option value="1920x1080">1080p — 1920×1080</option><option value="2560x1440">1440p — 2560×1440</option><option value="3840x2160">4K UHD — 3840×2160</option><option value="7680x4320">8K UHD — 7680×4320</option><option value="1080x1920">1080p Portrait — 1080×1920</option><option value="2160x3840">4K Portrait — 2160×3840</option></select></label><label>Width <input id="new-display-width" type="number" value="1920"></label><label>Height <input id="new-display-height" type="number" value="1080"></label><label><input id="new-display-sync" type="checkbox" checked> Synchronize slideshow</label><button class="btn btn-apply" data-onclick="createDisplayProfile()">Add display</button></div></div></div>
+                    <div class="settings-tab-content" id="tab-displays" style="display:none;"><div class="panel"><h2>Display Profiles</h2><p style="font-size:.8rem;color:#aaa">Choose a standard target or enter any custom pixel dimensions.</p><div id="display-profiles-list"></div><div id="display-content-editor" class="art-editor" hidden></div><div class="setting-group"><label>New display name <input id="new-display-name" value="New display"></label><label>Standard display <select id="display-preset" data-onchange="applyDisplayPreset(this.value)"><option value="">Custom</option><option value="1920x1080">1080p — 1920×1080</option><option value="2560x1440">1440p — 2560×1440</option><option value="3840x2160">4K UHD — 3840×2160</option><option value="7680x4320">8K UHD — 7680×4320</option><option value="1080x1920">1080p Portrait — 1080×1920</option><option value="2160x3840">4K Portrait — 2160×3840</option></select></label><label>Width <input id="new-display-width" type="number" value="1920"></label><label>Height <input id="new-display-height" type="number" value="1080"></label><label><input id="new-display-sync" type="checkbox" checked> Synchronize slideshow</label><button class="btn btn-apply" data-onclick="createDisplayProfile()">Add display</button></div></div></div>
                     <!-- Settings Tab -->
                     <div class="settings-tab-content" id="tab-settings" style="display:none;">
                         <!-- Slideshow Settings -->

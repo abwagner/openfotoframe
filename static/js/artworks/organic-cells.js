@@ -77,7 +77,8 @@ export function createArtwork({ container, seed, settings }) {
         },
         updateInteractionState(state) { people = state.people || []; },
         render({ elapsedSeconds: time, deltaSeconds: delta }) {
-            const blend = 1 - Math.exp(-delta * 2);
+            const positionBlend = 1 - Math.exp(-delta * 8);
+            const blend = 1 - Math.exp(-delta * 4);
             const tracked = new Set(people.map(p => p.id));
             for (const p of people) {
                 let influence = influences.find(v => v.id === p.id);
@@ -85,8 +86,8 @@ export function createArtwork({ container, seed, settings }) {
                     influence = { ...p, weight: 0 };
                     influences.push(influence);
                 }
-                influence.x += (p.x - influence.x) * blend;
-                influence.y += (p.y - influence.y) * blend;
+                influence.x += (p.x - influence.x) * positionBlend;
+                influence.y += (p.y - influence.y) * positionBlend;
                 influence.speed += (p.speed - influence.speed) * blend;
                 influence.weight += (1 - influence.weight) * blend;
             }
@@ -100,19 +101,27 @@ export function createArtwork({ container, seed, settings }) {
             const drift = time * settings.idle_speed;
             for (const cell of cells) {
                 const x = cell.x / width, y = cell.y / height;
-                let field = Math.sin(x * 3.1 + drift * 0.43) + Math.cos(y * 3.7 - drift * 0.31)
+                const field = Math.sin(x * 3.1 + drift * 0.43) + Math.cos(y * 3.7 - drift * 0.31)
                     + Math.sin((x + y) * 2.5 + drift * 0.17 + cell.phase * 0.12);
+                let position = Math.max(0, Math.min(palette.length - 1, (0.5 + field / 7) * (palette.length - 1)));
+                let illumination = 0;
                 for (const p of influences) {
                     const distance = Math.hypot(x - (p.x + 1) / 2, (y - 0.5) * 0.6);
-                    field += Math.exp(-distance * distance * 8) * (1 - p.y * 0.7) * p.weight
-                        * settings.interaction_strength * (1 + Math.min(p.speed, 2) * Math.sin(distance * 12 - time * 1.5));
+                    const reach = Math.exp(-distance * distance * 8) * (1 - p.y * 0.7)
+                        * p.weight * settings.interaction_strength;
+                    // Sweep through whole palette stops instead of nudging a
+                    // compressed color field. Motion adds a broad moving ripple.
+                    position += reach * (palette.length - 1)
+                        * (1.6 + Math.min(p.speed, 2) * 0.55 * Math.sin(distance * 12 - time * 1.5));
+                    illumination += reach * 0.12;
                 }
-                const position = (0.5 + field / 7) * (palette.length - 1);
-                const clamped = Math.max(0, Math.min(palette.length - 1, position));
-                const index = Math.floor(clamped), fraction = clamped - index;
-                const first = palette[index], second = palette[Math.min(index + 1, palette.length - 1)];
-                const light = 0.9 + Math.sin(cell.phase + drift * 0.23) * 0.06;
-                const rgb = first.map((v, i) => Math.round((v + (second[i] - v) * fraction) * light));
+                // Wrap smoothly so strong interaction keeps changing colors
+                // rather than clipping a whole region to the last palette stop.
+                const wrapped = position % palette.length;
+                const index = Math.floor(wrapped), fraction = wrapped - index;
+                const first = palette[index], second = palette[(index + 1) % palette.length];
+                const light = Math.min(1.1, 0.9 + Math.sin(cell.phase + drift * 0.23) * 0.06 + illumination);
+                const rgb = first.map((v, i) => Math.min(255, Math.round((v + (second[i] - v) * fraction) * light)));
                 ctx.fillStyle = `rgb(${rgb.join(',')})`;
                 ctx.fill(cell.path);
                 ctx.stroke(cell.path);

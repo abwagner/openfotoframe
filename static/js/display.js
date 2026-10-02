@@ -44,7 +44,9 @@ async function applyState(state, sequence) {
             }).catch(error => { catalogPromise = null; throw error; });
             const [{ ArtworkHost }, catalog] = await Promise.all([import('/static/js/display-art.js'), catalogPromise]);
             if (generation !== modeGeneration || stateSequence !== appliedSequence) return;
-            artHost ||= new ArtworkHost(artSurface);
+            artHost ||= new ArtworkHost(artSurface, {
+                simulate: new URLSearchParams(location.search).get('simulate') === '1'
+            });
             artHost.setPaused(state.paused);
             await artHost.configure(state.art, catalog.artworks.find(entry => entry.id === state.art.artwork_id));
         } catch (error) { console.error('Artwork display failed', error); }

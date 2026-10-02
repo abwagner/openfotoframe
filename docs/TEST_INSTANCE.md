@@ -10,6 +10,11 @@ that instance's display enrollment flow, or open it while logged in. It starts i
 Art mode with Organic Cells and an empty photo gallery. Use **Settings → Displays →
 Edit content** to try colorways, custom cell colors, grout colors, or photo mode.
 
+For a fullscreen movement preview, open
+**https://frame-dev.swagner.tech/display?simulate=1** and move the pointer across
+the pattern. Pointer input stays local to that browser. The regular display URL
+runs the ambient artwork; the settings editor also supports pointer interaction.
+
 ## Isolation
 
 | Resource | Production | Test |

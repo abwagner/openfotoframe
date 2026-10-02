@@ -50,8 +50,11 @@ export function patternedCells(width, height, settings, rng) {
             place(maxRadius * (0.5 + rng() * 0.5), unit * 0.1, 24);
         }
         const target = Math.round(count * 3 * (settings.circle_fill ?? 0.5));
-        for (let i = 0; i < target; i++) {
-            if (!place(maxRadius * 0.4, Math.max(gap, unit * 0.025), 32)) break;
+        // One unlucky candidate batch must not stop filling all remaining gaps.
+        let added = 0, misses = 0;
+        for (let i = 0; i < count * 12 && added < target && misses < 16; i++) {
+            if (place(maxRadius * 0.4, Math.max(gap, unit * 0.025), 32)) { added++; misses = 0; }
+            else misses++;
         }
     } else if (settings.shape === 'rectangles') {
         const aspect = Math.pow(4, 1 - (settings.rectangle_squareness ?? 0.5));

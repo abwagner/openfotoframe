@@ -78,3 +78,11 @@ test('Density controls typical size; squareness controls the rectangle distribut
         .reduce((sum,c)=>sum+(c.vertices[1][0]-c.vertices[0][0])/(c.vertices[3][1]-c.vertices[0][1]),0)/80;
     assert.ok(aspect(0)>aspect(1)*2);
 });
+test('Circle gap fill continues after unsuccessful candidate batches', () => {
+    const counts = [0,0.5,1].map(circle_fill => {
+        let n=123;
+        const rng=()=>((n=(Math.imul(n,1664525)+1013904223)>>>0)/4294967296);
+        return patternedCells(1280,720,{shape:'circles',cell_density:80,circle_fill},rng).length;
+    });
+    assert.ok(counts[0]<counts[1] && counts[1]<counts[2]);
+});

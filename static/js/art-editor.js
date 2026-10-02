@@ -131,6 +131,7 @@ export function createArtEditor(container, profile, catalog, { onSaved, onClose 
 
     function buildForm() {
         entry = catalog.artworks.find(a => a.id === content.art.artwork_id);
+        content.art.settings = { ...clone(entry.defaults), ...content.art.settings };
         description.textContent = entry.description;
         form.replaceChildren(); swatchButtons = []; colorwayStatus = null;
         if (entry.palettes?.length) {
@@ -156,7 +157,12 @@ export function createArtEditor(container, profile, catalog, { onSaved, onClose 
         }
         for (const spec of entry.schema) {
             const settings = content.art.settings;
-            if (spec.type === 'palette') {
+            if (spec.visible_when && !Object.entries(spec.visible_when).every(([key, value]) => settings[key] === value)) continue;
+            if (spec.type === 'enum') {
+                const input = select(spec.options, settings[spec.key]);
+                input.addEventListener('change', () => { settings[spec.key] = input.value; buildForm(); refresh(); });
+                field(form, spec.label, input);
+            } else if (spec.type === 'palette') {
                 const input = select([...entry.palettes.map(p => [p.id, p.name]), ['custom', 'Custom']], settings[spec.key]);
                 input.addEventListener('change', () => {
                     const colors = settings.palette === 'custom' ? settings.custom_cell_colors : entry.palettes.find(p => p.id === settings.palette).colors;
@@ -191,10 +197,16 @@ export function createArtEditor(container, profile, catalog, { onSaved, onClose 
                 const add = button('Add color', () => { colors.push('#E8DCC8'); buildForm(); refresh(); });
                 add.disabled = colors.length >= spec.max; list.append(add); form.append(list);
             } else if (spec.type === 'integer' || spec.type === 'number') {
-                const input = element('input'); input.type = 'number';
+                const input = element('input'); input.type = spec.control === 'range' ? 'range' : 'number';
                 input.min = spec.min; input.max = spec.max; input.step = spec.step; input.value = settings[spec.key];
-                input.addEventListener('input', () => { settings[spec.key] = input.value === '' ? null : Number(input.value); refresh(); });
+                const output = element('output', `${Math.round(settings[spec.key] * 100)}%`);
+                input.addEventListener('input', () => {
+                    settings[spec.key] = input.value === '' ? null : Number(input.value);
+                    output.textContent = `${Math.round(settings[spec.key] * 100)}%`; refresh();
+                });
                 field(form, spec.label, input);
+                if (spec.control === 'range') form.lastElementChild.append(output);
+                if (spec.help) form.append(element('p', spec.help, 'art-help'));
             }
         }
         const seed = element('input'); seed.type = 'number'; seed.min = 0; seed.max = 2147483647; seed.step = 1; seed.value = content.art.seed;

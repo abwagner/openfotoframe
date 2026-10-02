@@ -1,3 +1,5 @@
+import { patternedCells } from './cell-geometry.js';
+
 // Seeded Voronoi geometry is cached; only the broad color field moves each frame.
 export function createArtwork({ container, seed, settings }) {
     const canvas = document.createElement('canvas');
@@ -19,6 +21,10 @@ export function createArtwork({ container, seed, settings }) {
     function rebuild() {
         if (!width || !height) return;
         const rng = random();
+        if (settings.shape && settings.shape !== 'organic') {
+            cells = patternedCells(width, height, settings, rng);
+            return;
+        }
         const count = settings.cell_density;
         const columns = Math.max(2, Math.round(Math.sqrt(count * width / height)));
         const rows = Math.max(2, Math.ceil(count / columns));
@@ -59,10 +65,11 @@ export function createArtwork({ container, seed, settings }) {
         });
     }
     function setSettings(next) {
-        const densityChanged = settings.cell_density !== next.cell_density;
+        const geometryChanged = ['cell_density', 'shape', 'circle_fill', 'rectangle_squareness']
+            .some(key => settings[key] !== next[key]);
         settings = { ...next };
         palette = settings.cell_colors.map(hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)));
-        if (densityChanged) rebuild();
+        if (geometryChanged) rebuild();
     }
     setSettings(settings);
     return {

@@ -21,6 +21,7 @@ PALETTES = [
 ]
 DEFAULT_SETTINGS = {'palette': 'warm-stone', 'custom_cell_colors': None,
                     'grout_color': '#171411', 'cell_density': 80,
+                    'shape': 'organic', 'circle_fill': 0.5, 'rectangle_squareness': 0.5,
                     'idle_speed': 0.05, 'interaction_strength': 0.7}
 ARTWORKS = {
     'organic-cells': {
@@ -31,10 +32,19 @@ ARTWORKS = {
         'settings_version': 1, 'defaults': DEFAULT_SETTINGS,
         'capabilities': {'interaction': True, 'renderer': 'canvas'},
         'schema': [
+            {'key': 'shape', 'label': 'Cell shape', 'type': 'enum', 'options': [
+                ['organic', 'Organic cells'], ['circles', 'Circles'], ['rectangles', 'Rectangles'],
+                ['hexagons', 'Hexagons'], ['triangles', 'Triangles'], ['diamonds', 'Diamonds']]},
+            {'key': 'circle_fill', 'label': 'Circle gap fill', 'type': 'number', 'min': 0, 'max': 1, 'step': 0.01,
+             'control': 'range', 'visible_when': {'shape': 'circles'},
+             'help': 'More fill adds progressively smaller circles between the large ones.'},
+            {'key': 'rectangle_squareness', 'label': 'Rectangle squareness', 'type': 'number', 'min': 0, 'max': 1, 'step': 0.01,
+             'control': 'range', 'visible_when': {'shape': 'rectangles'},
+             'help': 'Move from elongated rectangles to squares.'},
             {'key': 'palette', 'label': 'Cell palette', 'type': 'palette'},
             {'key': 'custom_cell_colors', 'label': 'Custom cell colors', 'type': 'color-list', 'min': 2, 'max': 12},
             {'key': 'grout_color', 'label': 'Grout color', 'type': 'color'},
-            {'key': 'cell_density', 'label': 'Cell count', 'type': 'integer', 'min': 20, 'max': 300, 'step': 1},
+            {'key': 'cell_density', 'label': 'Cell density', 'type': 'integer', 'min': 20, 'max': 300, 'step': 1},
             {'key': 'idle_speed', 'label': 'Color drift', 'type': 'number', 'min': 0, 'max': 1, 'step': 0.01},
             {'key': 'interaction_strength', 'label': 'Viewer influence', 'type': 'number', 'min': 0, 'max': 1, 'step': 0.01},
         ],
@@ -95,6 +105,10 @@ def validate_content(value, previous=None):
                 raise ValueError('Custom colors require the custom palette')
             settings['custom_cell_colors'] = None
     for field in entry['schema']:
+        if field['type'] == 'enum':
+            choice = settings[field['key']]
+            if not isinstance(choice, str) or choice not in [option[0] for option in field['options']]:
+                raise ValueError(f"Unknown {field['label'].lower()}")
         if field['type'] == 'color':
             settings[field['key']] = _color(settings[field['key']])
         if field['type'] not in ('integer', 'number'):

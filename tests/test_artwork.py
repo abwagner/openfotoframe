@@ -66,6 +66,8 @@ def test_custom_palette_and_mode_switch_preserve_saved_art(auth_client):
 
 
 @pytest.mark.parametrize('settings', [
+    {'shape': 'unknown'}, {'shape': []}, {'circle_fill': -0.1}, {'circle_fill': 1.1},
+    {'rectangle_squareness': True}, {'rectangle_squareness': 2},
     {'palette': 'unknown'}, {'palette': []}, {'grout_color': 'red'}, {'grout_color': '#FFFFFF00'},
     {'palette': 'custom', 'custom_cell_colors': ['#ffffff']},
     {'palette': 'custom', 'custom_cell_colors': ['#ffffff', 'red']},
@@ -161,3 +163,29 @@ def test_catalog_supports_artworks_with_different_settings(auth_client, monkeypa
     state = auth_client.get('/api/display/state').get_json()['art']
     assert state['artwork_id'] == 'test-scene'
     assert state['settings'] == {'background': '#ABCDEF', 'speed': 0.2}
+
+
+@pytest.mark.parametrize('shape', ['organic', 'circles', 'rectangles', 'hexagons', 'triangles', 'diamonds'])
+def test_shape_controls_persist_without_changing_colors_or_seed(auth_client, shape):
+    save_art(auth_client, {'palette': 'ocean', 'grout_color': '#ABCDEF'})
+    before = auth_client.get('/api/display/state').get_json()['art']
+    assert save_art(auth_client, {'shape': shape, 'circle_fill': 0.9, 'rectangle_squareness': 1}).status_code == 200
+    disk = json.loads(photo_app.SETTINGS_FILE.read_text())
+    photo_app.save_settings(disk)
+    after = auth_client.get('/api/display/state').get_json()['art']
+    assert after['settings']['shape'] == shape
+    assert after['settings']['circle_fill'] == 0.9
+    assert after['settings']['rectangle_squareness'] == 1
+    assert after['settings']['palette'] == 'ocean'
+    assert after['settings']['grout_color'] == '#ABCDEF'
+    assert after['seed'] == before['seed']
+    assert after['revision'] != before['revision']
+
+
+def test_existing_art_settings_gain_organic_shape_defaults():
+    old = {'mode': 'art', 'art': {'seed': 123, 'settings': {'palette': 'forest', 'cell_density': 120}}}
+    result = validate_content({}, old)
+    assert result['art']['settings']['shape'] == 'organic'
+    assert result['art']['settings']['cell_density'] == 120
+    assert result['art']['settings']['palette'] == 'forest'
+    assert result['art']['seed'] == 123

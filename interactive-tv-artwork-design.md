@@ -249,6 +249,12 @@ uses an unauthenticated alternate art page or accepts arbitrary executable asset
 
 ## 8. First artwork: Organic Cells
 
+Implemented shape options: organic cells (the original default), circles, rectangles,
+hexagons, triangles, and diamonds. Circle gap fill (0–1) adds smaller circles into
+free space; rectangle squareness (0–1) changes tile aspect from 4:1 to 1:1.
+These settings share the existing palette, independent grout, seeded geometry,
+and viewer interaction. Older saved configurations receive the organic default.
+
 Generate a stable arrangement of Voronoi-like cells from the saved seed. Use
 irregular or softened geometry with independently colored grout and a broad, slowly evolving color
 field. Cache geometry and redraw changing color values rather than rebuilding

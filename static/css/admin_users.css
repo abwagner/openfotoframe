@@ -23,25 +23,21 @@
 
         .header-top {
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-end;
+            gap: 15px;
             align-items: center;
             margin-bottom: 20px;
         }
 
-        .nav-links {
-            display: flex;
-            gap: 20px;
-        }
-
-        .nav-links a {
+        .header-link {
             color: #888;
             text-decoration: none;
+            font-size: 0.9rem;
             transition: color 0.2s;
         }
 
-        .nav-links a:hover {
-            color: #00d4ff;
-        }
+        .header-link:hover  { color: #00d4ff; }
+        .header-link.active { color: #00d4ff; font-weight: 500; }
 
         h1 {
             font-size: 1.8rem;

@@ -57,9 +57,11 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute
                 text.textContent = 'Not configured';
                 meta.textContent = 'Connect your Dropbox account to enable backups.';
                 clearPollTimer();
-            } else if (status.last_result === 'success') {
+            } else if (status.last_result === 'success' || status.last_result === 'no_changes') {
                 dot.className = 'status-dot green';
-                text.textContent = 'Connected — Last backup successful';
+                text.textContent = status.last_result === 'no_changes'
+                    ? 'Connected — Last run: no changes to back up'
+                    : 'Connected — Last backup successful';
                 meta.textContent = formatMeta(status);
                 clearPollTimer();
             } else if (status.last_result === 'error') {
@@ -86,6 +88,9 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute
             }
             if (status.backup_path) {
                 document.getElementById('backup-path').value = status.backup_path;
+            }
+            if (status.max_backup_history) {
+                document.getElementById('max-history').value = status.max_backup_history;
             }
 
             // Update backup button state
@@ -150,11 +155,13 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute
             const rows = [...history].reverse().map(entry => {
                 const d = new Date(entry.timestamp);
                 const time = d.toLocaleString();
-                const result = entry.result === 'success' ? 'Success' : 'Failed';
-                const duration = entry.duration_seconds ? entry.duration_seconds + 's' : '-';
+                const resultLabel = entry.result === 'success' ? 'Success'
+                    : entry.result === 'no_changes' ? 'No changes'
+                    : 'Failed';
+                const duration = entry.duration_seconds ? entry.duration_seconds + 's' : '—';
                 const error = entry.error ? `<br><span style="color:#888;font-size:0.8em;">${escapeHtml(entry.error.substring(0, 100))}</span>` : '';
                 return `<tr class="${entry.result}">
-                    <td>${result}${error}</td>
+                    <td>${resultLabel}${error}</td>
                     <td>${time}</td>
                     <td>${duration}</td>
                 </tr>`;
@@ -272,6 +279,7 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute
         async function saveBackupSettings() {
             const backupTime = document.getElementById('backup-time').value;
             const backupPath = document.getElementById('backup-path').value.trim();
+            const maxHistory = parseInt(document.getElementById('max-history').value, 10);
 
             try {
                 const response = await fetch('/api/backup/settings', {
@@ -279,7 +287,8 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         backup_time: backupTime,
-                        backup_path: backupPath
+                        backup_path: backupPath,
+                        max_backup_history: maxHistory
                     })
                 });
                 if (response.ok) {

@@ -8,6 +8,7 @@ The proposed multi-display allocator and aspect-aware rendering architecture is
 documented in [docs/MULTI_DISPLAY_DESIGN.md](docs/MULTI_DISPLAY_DESIGN.md).
 
 - **Web Upload Interface** - Upload photos from any device on your network
+- **Generated Art** - Select Organic Cells per display, with six cell shapes, 12 colorways, custom cell palettes, and independent grout colors
 - **Multi-User Support** - Admin can create user accounts
 - **Gallery Management** - Show/hide photos, bulk actions, delete
 - **Password Protection** - Secure login with forced password change on first login
@@ -166,6 +167,29 @@ Settings are organized into two tabs in the sidebar:
 
 Mat color, mat finish, border effect, and image scale can be overridden per image or per group from the upload page preview. Image cropping is also available per image.
 
+## Generated Art
+
+Open **Settings → Displays → Edit content** for a display and choose **Art**.
+Choose Organic cells, Circles, Rectangles, Hexagons, Triangles, or Diamonds in the content editor. Circles offer a gap-fill slider that adds smaller circles; rectangles offer a squareness slider that biases their proportions toward squares. Each seed varies sizes and locations; density controls typical size. Polygon cells fit the screen as complete partitions, with adapted boundary cells rather than cropped rows. Circles remain whole, with grout between them. Viewer color sweeps cover the full height. Shape changes preserve the palette, grout, seed, and viewer response.
+
+Organic Cells animates locally in the browser and works with no photos or sensor.
+Select a colorway to set both cells and grout, or choose a cell palette and grout
+color independently. Custom cell palettes support 2–12 colors, with reorder controls.
+The live preview supports pointer interaction; click **Save content** to apply it
+on that display. Preview changes do not affect the TV until saved.
+
+The existing `/display?display=<id>` URL serves both photos and art. Pause/play
+freezes and resumes art independently of other displays. Switching back to Photos
+preserves art settings. Independent photo slideshows resume their stored position;
+synchronized photo displays rejoin the current shared slideshow position.
+
+Art uses bundled assets and keeps animating through a backend outage after it has
+loaded. Fresh startup needs the backend. Radar integration is planned separately;
+normal kiosk art currently runs in ambient mode. New artwork modules can be added
+through the catalog and shared lifecycle in `static/js/display-art.js`.
+
+A separately deployed test instance is documented in [docs/TEST_INSTANCE.md](docs/TEST_INSTANCE.md).
+
 ## TV Power Schedule (HDMI-CEC)
 
 Control your TV's power automatically using HDMI-CEC. During install, choose "Enable HDMI-CEC TV power control" to set up the CEC device passthrough.
@@ -185,7 +209,13 @@ In the web UI settings panel:
 - `cec-utils` is installed automatically during setup
 - The CEC device (`/dev/cec0`) must be passed through to the Docker container
 
-### Troubleshooting CEC
+### Development checks
+
+Run the backend suite with `pytest`. With Node.js installed, run
+`node --test tests/artwork_geometry.test.mjs` to check seeded geometry, varied
+sizes, complete polygon coverage, whole circles, and shape controls.
+
+## Troubleshooting CEC
 
 - If CEC status shows "unavailable", ensure the device mapping is uncommented in `docker-compose.yml`
 - Some TVs use different CEC brand names (Anynet+, Bravia Sync, SimpLink, etc.) — the protocol is the same
@@ -492,9 +522,11 @@ the kiosk service user and mode `0600`. The agent reads it from that file and pa
 it to curl through standard input, so the value is absent from URLs and process
 arguments. Set `CEC_AGENT_TOKEN_FILE` only when using a different protected path.
 
-Legacy Docker container names (`pi-photo-frame`), volume names (`photoframe_*`), and
-the former CEC token path remain recognized so existing installations upgrade without
-data movement. New host-side configuration uses the OpenFotoFrame name.
+Existing installations may retain the named volumes (`photoframe_*`) while recreating
+the app container as `openfotoframe`; this preserves all uploaded photos and settings.
+The CEC agent also falls back to the former `/etc/pi-photo-frame/cec-agent-token`
+path so existing display-only Pis continue to work. New host-side configuration uses
+the OpenFotoFrame name.
 
 ### Multi-factor authentication
 
@@ -539,6 +571,12 @@ decompression-bomb warnings, corrupt data, decoded images over 80 million pixels
 or either dimension over 20,000 pixels return a friendly 400 and leave no partial
 file. The limits can be adjusted with `MAX_IMAGE_PIXELS` and `MAX_IMAGE_DIMENSION`;
 the defaults accommodate ordinary modern phone photos.
+
+## Development checks
+
+Run the backend suite with `pytest`. With Node.js installed, run
+`node --test tests/artwork_geometry.test.mjs` to check seeded geometry, varied
+sizes, complete polygon coverage, whole circles, and shape controls.
 
 ## Troubleshooting
 

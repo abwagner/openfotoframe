@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/openfotoframe-192.png') }}">
+    <link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='icons/openfotoframe-192.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+    <meta name="theme-color" content="#171513">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Admin — OpenFotoFrame</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <script src="{{ url_for('static', filename='js/legacy-events.js') }}" defer></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <a href="/upload" class="header-link">Photos</a>
+                <a href="/admin" class="header-link active">Admin</a>
+                <a href="/mfa" class="header-link">MFA</a>
+                <a href="/change-password" class="header-link">Password</a>
+                <a href="/logout" class="header-link">Logout</a>
+            </div>
+        </header>
+
+        <div id="message" class="message" style="display:none;"></div>
+
+        <!-- Tab bar -->
+        <div class="tab-bar">
+            <button class="tab active" id="tab-users-btn" data-onclick="switchTab('users')">Users</button>
+            <button class="tab" id="tab-backup-btn" data-onclick="switchTab('backup')">Backup</button>
+        </div>
+
+        <!-- Users Tab -->
+        <div id="tab-users">
+            <div class="panel">
+                <h2>Users</h2>
+                <form id="add-user-form" class="form-row">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="new-username" required minlength="3" placeholder="e.g. john">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="new-password" required minlength="12" placeholder="Min 12 characters">
+                    </div>
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select id="new-role">
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add</button>
+                </form>
+
+                <table class="user-table" style="margin-top: 20px;">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="user-list">
+                        {% for user in users %}
+                        <tr data-username="{{ user.username }}">
+                            <td>
+                                <strong>{{ user.username }}</strong>
+                                {% if user.username == username %}<span style="color:#888;"> (you)</span>{% endif %}
+                            </td>
+                            <td><span class="role-badge role-{{ user.role }}">{{ user.role }}</span></td>
+                            <td style="color:#888;">{{ user.created[:10] if user.created != 'Unknown' else '—' }}</td>
+                            <td class="actions">
+                                <button class="btn btn-secondary" data-onclick="showResetPassword('{{ user.username }}')">Reset Password</button>
+                                {% if user.username != 'admin' %}
+                                <button class="btn btn-danger" data-onclick="deleteUser('{{ user.username }}')">Delete</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Backup Tab -->
+        <div id="tab-backup" style="display:none;">
+            <!-- Status Panel -->
+            <div class="panel">
+                <h2>Status</h2>
+                <div class="status-row">
+                    <div class="status-dot gray" id="status-dot"></div>
+                    <div>
+                        <div class="status-text" id="status-text">Loading...</div>
+                        <div class="status-meta" id="status-meta"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Setup Panel (shown when not configured) -->
+            <div class="panel" id="setup-panel" style="display:none;">
+                <h2>Connect Dropbox</h2>
+                <p style="font-size:0.9rem; color:#aaa; margin-bottom:15px;">
+                    To enable backups, authorize rclone with your Dropbox account:
+                </p>
+                <ol class="setup-steps">
+                    <li>Install <a href="https://rclone.org/install/" style="color:#00d4ff;">rclone</a> on a computer with a web browser</li>
+                    <li>Run: <code>rclone authorize "dropbox"</code></li>
+                    <li>Log in to Dropbox when the browser opens</li>
+                    <li>Copy the JSON token that rclone prints</li>
+                    <li>Paste it below and click "Connect"</li>
+                </ol>
+                <div class="setting-group">
+                    <label>Dropbox Token</label>
+                    <textarea id="dropbox-token" rows="4"
+                              placeholder='Paste the {"access_token":"...","token_type":"bearer",...} JSON here'></textarea>
+                    <p class="help-text">This is the full JSON object printed by rclone authorize.</p>
+                </div>
+                <button class="btn btn-success" data-onclick="configureBackup()" id="connect-btn" style="width:100%;">
+                    Connect Dropbox
+                </button>
+            </div>
+
+            <!-- Controls Panel (shown when configured) -->
+            <div class="panel" id="controls-panel" style="display:none;">
+                <h2>Backup Controls</h2>
+                <div class="btn-row">
+                    <button class="btn btn-success" data-onclick="triggerBackup()" id="backup-now-btn">Backup Now</button>
+                    <button class="btn btn-primary" data-onclick="triggerRestore()" id="restore-now-btn">Restore from Dropbox</button>
+                    <button class="btn btn-danger" data-onclick="disconnectBackup()">Disconnect Dropbox</button>
+                </div>
+                <p class="help-text" style="margin-top:-5px;">
+                    Restore copies photos and settings from Dropbox without deleting local files.
+                    Login credentials and session keys are not overwritten.
+                </p>
+            </div>
+
+            <!-- Schedule Panel (shown when configured) -->
+            <div class="panel" id="settings-panel" style="display:none;">
+                <h2>Schedule</h2>
+                <div class="setting-group">
+                    <label>Daily Backup Time</label>
+                    <input type="time" id="backup-time" value="03:00" data-onchange="saveBackupSettings()">
+                    <p class="help-text">Backups run automatically once per day at this time.</p>
+                </div>
+                <div class="setting-group">
+                    <label>Dropbox Folder</label>
+                    <input type="text" id="backup-path" value="PhotoFrameBackup" data-onchange="saveBackupSettings()">
+                    <p class="help-text">Files are backed up to this folder in your Dropbox.</p>
+                </div>
+                <div class="setting-group">
+                    <label>Max history entries</label>
+                    <input type="number" id="max-history" min="1" max="200" value="30" data-onchange="saveBackupSettings()">
+                    <p class="help-text">How many backup log entries to keep.</p>
+                </div>
+            </div>
+
+            <!-- History Panel -->
+            <div class="panel" id="history-panel" style="display:none;">
+                <h2>Backup History</h2>
+                <div id="history-body">
+                    <div class="history-empty">No backups yet</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Password Modal -->
+    <div class="modal-overlay" id="reset-modal">
+        <div class="modal">
+            <h3>Reset Password</h3>
+            <p style="color:#888; margin-bottom:15px;">New password for <strong id="reset-username"></strong></p>
+            <div class="form-group">
+                <label>New Password</label>
+                <input type="password" id="reset-password" minlength="12" placeholder="Min 12 characters">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" data-onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" data-onclick="resetPassword()">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
+</body>
+</html>

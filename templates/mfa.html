@@ -3,41 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/openfotoframe-192.png') }}">
+    <link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='icons/openfotoframe-192.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+    <meta name="theme-color" content="#171513">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>MFA Settings</title>
+    <title>MFA — OpenFotoFrame</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_users.css') }}">
     <script src="{{ url_for('static', filename='js/legacy-events.js') }}" defer></script>
 </head>
 <body data-passkeys-available="{{ 'true' if passkeys_available else 'false' }}">
-<main>
-    <h1>Multi-factor authentication</h1>
-    {% if required %}<p>MFA enrollment is required before continuing.</p>{% endif %}
-    <p>Enrolled methods: {{ methods|join(', ') if methods else 'none' }}</p>
-    {% if settings.mfa_methods in ('totp', 'either') %}
-    <section>
-        <h2>Authenticator app</h2>
-        <button id="totp-start" type="button">Start TOTP enrollment</button>
-        <div id="totp-details" hidden>
-            <p>Secret (shown only during enrollment): <code id="totp-secret"></code></p>
-            <p><code id="totp-uri"></code></p>
-            <label>Verification code <input id="totp-code" inputmode="numeric" autocomplete="one-time-code"></label>
-            <button id="totp-verify" type="button">Verify and enroll</button>
+    <div class="container">
+        <div class="header-top">
+            <a href="/upload" class="header-link">Photos</a>
+            {% if is_admin %}<a href="/admin" class="header-link">Admin</a>{% endif %}
+            <a href="/mfa" class="header-link active">MFA</a>
+            <a href="/change-password" class="header-link">Password</a>
+            <a href="/logout" class="header-link">Logout</a>
         </div>
-    </section>
-    {% endif %}
-    {% if settings.mfa_methods in ('passkey', 'either') %}
-    <section>
-        <h2>Passkeys</h2>
-        {% if passkeys_available %}
-        <label>Name <input id="passkey-name" maxlength="80" value="My passkey"></label>
-        <button id="passkey-register" type="button">Add passkey</button>
-        {% else %}
-        <p>Passkeys require an administrator-configured stable HTTPS origin and matching relying-party ID.</p>
+
+        {% if required %}
+        <div class="message" style="display:block; background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.2); color: #ffc107; padding: 12px 15px; border-radius: 8px; margin-bottom: 20px;">
+            MFA enrollment is required before continuing.
+        </div>
         {% endif %}
-    </section>
-    {% endif %}
-    <pre id="mfa-output"></pre>
-    <p><a href="{{ url_for('upload_page') }}">Continue</a></p>
-</main>
-<script src="{{ url_for('static', filename='js/mfa.js') }}" defer></script>
+
+        <p style="color: #888; margin-bottom: 20px;">
+            Enrolled methods: <strong style="color: #e0e0e0;">{{ methods|join(', ') if methods else 'none' }}</strong>
+        </p>
+
+        {% if settings.mfa_methods in ('totp', 'either') %}
+        <div class="panel">
+            <h2>Authenticator App</h2>
+            <button id="totp-start" type="button" class="btn btn-primary">Start enrollment</button>
+            <div id="totp-details" hidden style="margin-top: 16px;">
+                <p style="color: #888; margin-bottom: 8px;">Scan in your authenticator app, or enter this secret:</p>
+                <p><code id="totp-secret" style="background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 6px; font-size: 0.9rem;"></code></p>
+                <p style="margin-top: 8px;"><code id="totp-uri" style="font-size: 0.75rem; color: #888; word-break: break-all;"></code></p>
+                <div class="form-group" style="margin-top: 16px;">
+                    <label>Verification code</label>
+                    <input id="totp-code" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code">
+                </div>
+                <button id="totp-verify" type="button" class="btn btn-primary">Verify and enroll</button>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if settings.mfa_methods in ('passkey', 'either') %}
+        <div class="panel">
+            <h2>Passkeys</h2>
+            {% if passkeys_available %}
+            <div class="form-group">
+                <label>Passkey name</label>
+                <input id="passkey-name" maxlength="80" value="My passkey">
+            </div>
+            <button id="passkey-register" type="button" class="btn btn-primary">Add passkey</button>
+            {% else %}
+            <p style="color: #888;">Passkeys require an administrator-configured stable HTTPS origin and matching relying-party ID.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <pre id="mfa-output" style="color: #888; font-size: 0.85rem; margin-top: 12px;"></pre>
+    </div>
+    <script src="{{ url_for('static', filename='js/mfa.js') }}" defer></script>
 </body>
 </html>

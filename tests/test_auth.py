@@ -117,6 +117,69 @@ class TestForcedPasswordChange:
         assert b'Current password is incorrect' in resp.data
 
 
+class TestAutheliaSSO:
+    """Tests for the trusted reverse-proxy Authelia login bridge."""
+
+    @staticmethod
+    def _enable(monkeypatch):
+        monkeypatch.setattr(photo_app, '_BEHIND_PROXY', True)
+        monkeypatch.setattr(photo_app, 'AUTHELIA_URL', 'https://auth.example.test')
+        monkeypatch.setattr(photo_app, 'AUTHELIA_USER_MAP', {
+            'andrew': 'admin',
+            'allison': 'allison',
+        })
+        monkeypatch.setattr(photo_app, 'AUTHELIA_ADMIN_GROUPS', {'admins'})
+
+    def test_login_redirects_to_authelia(self, client, monkeypatch):
+        self._enable(monkeypatch)
+
+        response = client.get('/login?next=/gallery')
+
+        assert response.status_code == 302
+        assert response.headers['Location'].startswith('https://auth.example.test/?')
+        assert 'rd=http%3A%2F%2Flocalhost%2Fgallery' in response.headers['Location']
+        assert 'rm=GET' in response.headers['Location']
+
+    def test_authelia_identity_bridges_to_local_session(self, client, monkeypatch):
+        self._enable(monkeypatch)
+        photo_app.change_user_password('admin', 'new-password-123')
+
+        response = client.get('/api/gallery', headers={'Remote-User': 'andrew'})
+
+        assert response.status_code == 200
+        with client.session_transaction() as flask_session:
+            assert flask_session['authenticated'] is True
+            assert flask_session['username'] == 'admin'
+            assert flask_session['auth_provider'] == 'authelia'
+
+    def test_unmapped_authelia_identity_is_rejected(self, client, monkeypatch):
+        self._enable(monkeypatch)
+
+        response = client.get('/api/gallery', headers={'Remote-User': 'unknown'})
+
+        assert response.status_code == 403
+        assert 'not mapped' in response.get_json()['error']
+
+    def test_authelia_groups_determine_application_role(self, client, monkeypatch):
+        self._enable(monkeypatch)
+        photo_app.change_user_password('admin', 'new-password-123')
+
+        admin_response = client.get('/admin/users', headers={
+            'Remote-User': 'andrew',
+            'Remote-Groups': 'admins',
+        })
+        assert admin_response.status_code == 200
+        with client.session_transaction() as flask_session:
+            assert flask_session['auth_role'] == 'admin'
+            assert flask_session['authelia_groups'] == ['admins']
+
+        user_response = client.get('/admin/users', headers={
+            'Remote-User': 'andrew',
+            'Remote-Groups': 'family',
+        })
+        assert user_response.status_code == 403
+
+
 class TestPasswordPolicy:
     def test_central_policy_requires_twelve_characters(self, app):
         assert photo_app.validate_password('short')[0] is False

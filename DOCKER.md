@@ -152,6 +152,9 @@ Set these in `docker-compose.yml` or pass via `-e` flag:
 | `DISPLAY_SESSION_LIFETIME_SECONDS` | Display session lifetime | `2592000` |
 | `BEHIND_PROXY` | Trust one proxy hop; only safe when Flask is exclusively behind a trusted proxy | unset |
 | `SECURE_COOKIES` | Always mark session cookies Secure | unset |
+| `AUTHELIA_URL` | Authelia portal URL; enables SSO when `BEHIND_PROXY=1` | unset |
+| `AUTHELIA_USER_MAP` | Comma-separated `authelia_user=local_user` mappings | same username |
+| `AUTHELIA_ADMIN_GROUPS` | Authelia groups granted the application admin role | `admins` |
 | `CEC_AGENT_TOKEN` | Dedicated display-side CEC bearer token; generated in the data volume when unset | generated |
 | `MAX_IMAGE_PIXELS` | Maximum decoded pixels per uploaded image | `80000000` |
 | `MAX_IMAGE_DIMENSION` | Maximum decoded width or height | `20000` |
@@ -159,6 +162,10 @@ Set these in `docker-compose.yml` or pass via `-e` flag:
 The bundled Compose configuration enables `BEHIND_PROXY=1` safely because the Flask
 container does not publish a host port and is reachable externally only through Caddy.
 Do not enable it for a directly exposed Flask process or container.
+
+When Authelia is enabled, the reverse proxy must inject the `Remote-User` header
+after successful forward-auth. Configure `AUTHELIA_USER_MAP` when Authelia and
+OpenFotoFrame use different usernames; unmapped identities receive `403`.
 
 MFA policy is managed by the administrator security-settings API. Passkeys require
 a stable publicly trusted HTTPS hostname and matching canonical origin. Self-signed,

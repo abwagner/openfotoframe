@@ -247,6 +247,10 @@
             color: #ff4757;
         }
 
+        .history-table tr.no_changes td:first-child {
+            color: #888;
+        }
+
         .history-empty {
             text-align: center;
             color: #666;

@@ -19,7 +19,7 @@ import logging
 import base64
 import warnings
 from ipaddress import ip_address
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlencode
 from datetime import datetime
 from pathlib import Path
 from functools import wraps
@@ -30,6 +30,12 @@ from flask_wtf.csrf import CSRFProtect
 from flask.sessions import SecureCookieSessionInterface
 from werkzeug.utils import secure_filename
 import tempfile
+
+import io
+import colorsys
+import qrcode
+import qrcode.image.svg
+from artwork_catalog import catalog as artwork_catalog, validate_content, resolve_art
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -47,6 +53,7 @@ from webauthn.helpers.structs import (
 from render_display import (
     render_snapshot as _render_snapshot,
     render_group_snapshot as _render_group_snapshot,
+    render_pair_slide_snapshot as _render_pair_slide_snapshot,
     delete_snapshot as _delete_snapshot,
     delete_group_snapshot as _delete_group_snapshot,
     get_groups_containing,
@@ -146,6 +153,44 @@ try:
         os.chmod(CEC_AGENT_TOKEN_FILE, 0o600)
 except OSError:
     pass
+
+# In-memory device code store for QR enrollment flow
+_device_codes = {}  # code -> {expires_at, approved, approved_by}
+_DEVICE_CODE_TTL = 300  # 5 minutes
+_BEHIND_PROXY = os.environ.get('BEHIND_PROXY', '').lower() in ('1', 'true')
+
+
+def _parse_authelia_user_map(value):
+    """Parse ``external_user=local_user`` pairs from the environment."""
+    mapping = {}
+    for pair in (value or '').split(','):
+        if '=' not in pair:
+            continue
+        external, local = (part.strip().lower() for part in pair.split('=', 1))
+        if external and local:
+            mapping[external] = local
+    return mapping
+
+
+def _parse_authelia_groups(value):
+    """Parse a comma-separated Authelia group list."""
+    return {group.strip().lower() for group in (value or '').split(',') if group.strip()}
+
+
+# Authelia is intentionally opt-in. It is safe to trust these headers only when
+# Flask is reachable exclusively through the configured trusted reverse proxy.
+AUTHELIA_URL = os.environ.get('AUTHELIA_URL', '').strip().rstrip('/')
+AUTHELIA_USER_MAP = _parse_authelia_user_map(os.environ.get('AUTHELIA_USER_MAP', ''))
+AUTHELIA_ADMIN_GROUPS = _parse_authelia_groups(
+    os.environ.get('AUTHELIA_ADMIN_GROUPS', 'admins')
+)
+
+def _cleanup_device_codes():
+    now = time.time()
+    expired = [k for k, v in list(_device_codes.items()) if v['expires_at'] < now]
+    for k in expired:
+        del _device_codes[k]
+
 
 # Session cookie security
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -368,6 +413,10 @@ has_default_password = user_requires_password_change
 
 def get_user_role(username: str) -> str:
     """Get user's role"""
+    if (has_request_context()
+            and session.get('auth_provider') == 'authelia'
+            and session.get('username') == username):
+        return session.get('auth_role', 'user')
     users = load_users()
     if username in users:
         return users[username].get('role', 'user')
@@ -445,6 +494,8 @@ load_users()
 
 def is_authenticated():
     """Check if current session is authenticated"""
+    if _BEHIND_PROXY and AUTHELIA_URL and session.get('auth_provider') != 'authelia':
+        return False
     return session.get('authenticated', False)
 
 
@@ -472,6 +523,75 @@ def has_valid_display_session():
 def display_access_ok():
     """Authorize display reads without trusting hostnames or URL credentials."""
     return request_is_loopback() or has_valid_display_session() or is_authenticated()
+
+
+def authelia_enabled():
+    """Return whether the application should use the proxy's Authelia identity."""
+    return _BEHIND_PROXY and bool(AUTHELIA_URL)
+
+
+def authelia_identity():
+    """Return the mapped local identity supplied by a trusted Authelia proxy."""
+    if not authelia_enabled():
+        return None
+
+    external_username = request.headers.get('Remote-User', '').strip().lower()
+    if not external_username:
+        return None
+
+    local_username = AUTHELIA_USER_MAP.get(external_username, external_username)
+    if local_username not in load_users():
+        return None
+    return external_username, local_username
+
+
+def authelia_request_groups():
+    """Return the groups asserted by the trusted Authelia forward-auth response."""
+    return _parse_authelia_groups(request.headers.get('Remote-Groups', ''))
+
+
+def authelia_redirect_url(path='/upload'):
+    """Build an Authelia portal URL with a safe same-host return destination."""
+    if not isinstance(path, str) or not path.startswith('/') or path.startswith('//'):
+        path = '/upload'
+    return f'{AUTHELIA_URL}/?{urlencode({"rd": request.host_url.rstrip("/") + path, "rm": "GET"})}'
+
+
+@app.before_request
+def establish_authelia_session():
+    """Bridge a successful Authelia check into the app's signed session cookie."""
+    if not authelia_enabled():
+        return None
+
+    external_identity = request.headers.get('Remote-User', '').strip().lower()
+    if not external_identity:
+        return None
+
+    identity = authelia_identity()
+    if identity is None:
+        # An authenticated proxy identity without a local account must not fall
+        # through to the local login form or create an unintended account.
+        return jsonify({'error': 'Authelia identity is not mapped to an application user'}), 403
+
+    external_username, local_username = identity
+    groups = authelia_request_groups()
+    auth_role = 'admin' if groups.intersection(AUTHELIA_ADMIN_GROUPS) else 'user'
+    if (session.get('auth_provider') == 'authelia'
+            and session.get('username') == local_username):
+        session['authelia_groups'] = sorted(groups)
+        session['auth_role'] = auth_role
+        return None
+
+    session.clear()
+    session.permanent = True
+    session['authenticated'] = True
+    session['username'] = local_username
+    session['auth_provider'] = 'authelia'
+    session['authelia_groups'] = sorted(groups)
+    session['auth_role'] = auth_role
+    log_security_event('authelia_login', True, username=local_username,
+                       external_username=external_username)
+    return None
 
 
 def display_api_required(f):
@@ -517,8 +637,10 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not is_authenticated():
-            return redirect(url_for('login'))
-        if has_default_password(session.get('username')) and request.path != '/change-password':
+            return redirect(url_for('login', next=request.path))
+        if (not (authelia_enabled() and session.get('auth_provider') == 'authelia')
+                and has_default_password(session.get('username'))
+                and request.path != '/change-password'):
             return redirect(url_for('change_password', forced=1))
         if session.get('mfa_enrollment_required') and not request.path.startswith('/mfa'):
             return redirect(url_for('mfa_page'))
@@ -531,7 +653,7 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not is_authenticated():
-            return redirect(url_for('login'))
+            return redirect(url_for('login', next=request.path))
         if not is_admin():
             return render_template('error.html', message='Admin access required'), 403
         return f(*args, **kwargs)
@@ -714,6 +836,54 @@ def generate_thumbnail(filepath, filename):
         return False
 
 
+def suggest_mat_color(filepath):
+    """Return a hex mat color derived from the image (brightness-aware + edge-neutral hybrid)."""
+    try:
+        with Image.open(filepath) as img:
+            img = ImageOps.exif_transpose(img)
+            img = img.convert('RGB')
+            img.thumbnail((150, 150), Image.Resampling.NEAREST)
+            w, h = img.size
+
+            # Overall brightness
+            gray_pixels = list(img.convert('L').getdata())
+            brightness = sum(gray_pixels) / len(gray_pixels)  # 0-255
+
+            # Sample outer edge strip (~15% on each side) for dominant hue/warmth
+            edge = max(1, min(15, w // 7, h // 7))
+            all_pixels = list(img.getdata())
+            edge_pixels = [
+                all_pixels[y * w + x]
+                for y in range(h)
+                for x in range(w)
+                if x < edge or x >= w - edge or y < edge or y >= h - edge
+            ]
+            if not edge_pixels:
+                edge_pixels = all_pixels
+
+            avg_r = sum(p[0] for p in edge_pixels) / len(edge_pixels)
+            avg_g = sum(p[1] for p in edge_pixels) / len(edge_pixels)
+            avg_b = sum(p[2] for p in edge_pixels) / len(edge_pixels)
+
+            h_hls, l_hls, s_hls = colorsys.rgb_to_hls(avg_r / 255, avg_g / 255, avg_b / 255)
+
+            # Map image brightness to mat lightness (inverted: bright image → dark mat)
+            if brightness > 165:
+                target_l = 0.20
+            elif brightness > 110:
+                target_l = 0.55
+            else:
+                target_l = 0.82
+
+            # Heavily desaturate, preserving a subtle warmth/cool cast from edge colors
+            target_s = min(s_hls * 0.25, 0.10)
+
+            r, g, b = colorsys.hls_to_rgb(h_hls, target_l, target_s)
+            return '#{:02x}{:02x}{:02x}'.format(int(r * 255), int(g * 255), int(b * 255))
+    except Exception:
+        return None
+
+
 def backfill_thumbnails():
     """Generate thumbnails for any uploaded images missing them."""
     if not UPLOAD_FOLDER.exists():
@@ -726,6 +896,25 @@ def backfill_thumbnails():
             thumb_jpg = thumb_path.with_suffix('.jpg')
             if not thumb_path.exists() and not thumb_jpg.exists():
                 if generate_thumbnail(f, f.name):
+                    count += 1
+    return count
+
+
+def backfill_mat_colors():
+    """Suggest and store mat_color for any images that don't have one yet."""
+    if not UPLOAD_FOLDER.exists():
+        return 0
+    if not load_settings().get('auto_mat_color', True):
+        return 0
+    gallery = load_gallery()
+    count = 0
+    for filename, meta in gallery.get('images', {}).items():
+        if meta.get('mat_color') is None:
+            filepath = UPLOAD_FOLDER / filename
+            if filepath.exists():
+                color = suggest_mat_color(filepath)
+                if color:
+                    update_image_metadata(filename, mat_color=color)
                     count += 1
     return count
 
@@ -757,6 +946,35 @@ def regenerate_snapshots_for_groups_containing(filename):
     gallery = load_gallery()
     for group_id in get_groups_containing(filename, gallery):
         generate_group_display_snapshot(group_id)
+
+
+def regenerate_profile_snapshots_for_image(filename):
+    """Refresh every active display profile after an image presentation change."""
+    gallery = load_gallery()
+    settings = load_settings()
+    for profile in display_profiles(settings, active_only=True):
+        profile_settings = display_settings(settings, profile)
+        _render_snapshot(filename, gallery, profile_settings, UPLOAD_FOLDER, SNAPSHOT_FOLDER)
+        for group_id in get_groups_containing(filename, gallery):
+            _render_group_snapshot(group_id, gallery, profile_settings, UPLOAD_FOLDER, SNAPSHOT_FOLDER)
+
+
+def _get_slide_snapshot_url(slide):
+    """Return the /snapshots/ URL for a slide if its snapshot file exists, else None."""
+    if slide is None:
+        return None
+    if slide['type'] == 'group':
+        group_id = slide.get('group_id')
+        if not group_id:
+            return None
+        snap_path = SNAPSHOT_FOLDER / f'{group_id}.display.png'
+    else:
+        filename = slide['images'][0]['filename']
+        snap_path = SNAPSHOT_FOLDER / f'{filename}.display.png'
+    if not snap_path.exists():
+        return None
+    # Change the URL whenever a snapshot is regenerated so displays reload it.
+    return f'/snapshots/{snap_path.name}?v={snap_path.stat().st_mtime_ns}'
 
 
 def get_uploaded_images():
@@ -806,28 +1024,63 @@ DEFAULT_SETTINGS = {
     'mat_finish': 'eggshell',
     'bevel_width': 4,
     'border_effect': 'bevel',
+    'bevel_lit_intensity': 50,
+    'bevel_lit_v': 50,
+    'bevel_lit_h': 50,
     'slideshow_interval': 60,
     'transition_duration': 1,
     'fit_mode': 'contain',
+    'auto_mat_color': True,
     'shuffle': False,
     'image_order': [],
     'target_aspect_ratio': '16:9',
     'tv_schedules': [],
+    'max_backup_history': 30,
     'mfa_mode': 'disabled',
     'mfa_methods': 'either',
     'webauthn_rp_id': '',
     'webauthn_origin': '',
+    'displays': [],
 }
 
 
-def load_settings():
-    """Load settings from JSON file"""
-    if SETTINGS_FILE.exists():
-        with open(SETTINGS_FILE, 'r') as f:
-            settings = json.load(f)
-            return {**DEFAULT_SETTINGS, **settings}
-    return DEFAULT_SETTINGS.copy()
+def _legacy_display(settings):
+    """Translate the former single global target into a display profile."""
+    aspect = settings.get("target_aspect_ratio", "16:9")
+    width, height = {"16:9": (1920, 1080), "21:9": (2560, 1080), "4:3": (1600, 1200), "1:1": (1200, 1200)}.get(aspect, (1920, 1080))
+    return {"id": "default", "name": "Main display", "active": True, "width": width, "height": height, "synchronized": True}
 
+def display_profiles(settings, active_only=False):
+    profiles = settings.get("displays") or [_legacy_display(settings)]
+    profiles = [{**p, "content": validate_content(p.get("content", {}))} for p in profiles]
+    return [p for p in profiles if p.get("active", True)] if active_only else profiles
+
+def get_display_profile(settings, display_id=None):
+    profiles = display_profiles(settings)
+    if display_id:
+        profile = next((p for p in profiles if p.get("id") == display_id), None)
+        if profile:
+            return profile
+    return next((p for p in profiles if p.get("active", True)), profiles[0])
+
+def display_settings(settings, profile):
+    """Return settings for one render target without mutating global settings."""
+    result = dict(settings)
+    result.update(profile.get("settings", {}))
+    result["screen_width"] = int(profile.get("width", 1920))
+    result["screen_height"] = int(profile.get("height", 1080))
+    result["_display_id"] = profile["id"]
+    return result
+
+def load_settings():
+    """Load settings, exposing a migrated default display for legacy installs."""
+    settings = {}
+    if SETTINGS_FILE.exists():
+        with open(SETTINGS_FILE, "r") as f:
+            settings = json.load(f)
+    settings = {**DEFAULT_SETTINGS, **settings}
+    settings.setdefault("displays", [_legacy_display(settings)])
+    return settings
 
 def save_settings(settings):
     """Save settings to JSON file"""
@@ -844,19 +1097,51 @@ _display_state = {
 }
 
 
-def _get_effective_index(total_slides):
-    """Compute current slide index with lazy auto-advance."""
+def _get_effective_index(total_slides, state=None, settings=None):
+    """Compute a profile slideshow index with lazy auto-advance."""
     if total_slides == 0:
         return 0
-    state = _display_state
-    if state['paused'] or total_slides <= 1:
-        return state['index'] % total_slides
-    settings = load_settings()
-    interval = settings.get('slideshow_interval', 10)
-    elapsed = time.time() - state['last_advanced_at']
+    state = state or _display_state
+    if state["paused"] or total_slides <= 1:
+        return state["index"] % total_slides
+    settings = settings or load_settings()
+    interval = settings.get("slideshow_interval", 10)
+    elapsed = time.time() - state["last_advanced_at"]
     advances = int(elapsed / interval)
-    return (state['index'] + advances) % total_slides
+    return (state["index"] + advances) % total_slides
 
+
+_independent_display_states = {}
+_art_display_states = {}
+
+
+def _art_state_response(profile):
+    state = _art_display_states.setdefault(profile['id'], {'paused': False})
+    return {"display": profile, "content_mode": "art", "paused": state['paused'],
+            "index": 0, "total": 0, "snapshot_url": None,
+            "art": resolve_art(profile['content'])}
+
+def _profile_state(profile):
+    if profile.get("synchronized", True):
+        return _display_state
+    return _independent_display_states.setdefault(profile["id"], {"index": 0, "paused": False, "last_advanced_at": time.time()})
+
+def _profile_snapshot_url(slide, profile):
+    if slide is None: return None
+    base = slide.get("group_id") if slide.get("type") == "group" else slide["images"][0]["filename"]
+    path = SNAPSHOT_FOLDER / f"{base}.{profile["id"]}.display.png"
+    if not path.exists():
+        settings = display_settings(load_settings(), profile)
+        if slide.get("type") == "group":
+            if base.startswith("__pair_"):
+                # Auto-paired portrait slides are synthetic and have no entry in
+                # gallery["groups"]. Render from the slide data itself.
+                _render_pair_slide_snapshot(slide, settings, UPLOAD_FOLDER, SNAPSHOT_FOLDER)
+            else:
+                _render_group_snapshot(base, load_gallery(), settings, UPLOAD_FOLDER, SNAPSHOT_FOLDER)
+        else:
+            _render_snapshot(base, load_gallery(), settings, UPLOAD_FOLDER, SNAPSHOT_FOLDER)
+    return f"/snapshots/{path.name}?v={path.stat().st_mtime_ns}" if path.exists() else None
 
 # ============ Backup Management ============
 
@@ -874,11 +1159,28 @@ def load_backup_log():
 
 def save_backup_log(log_data):
     """Save backup log to JSON file"""
-    # Keep only last 30 history entries
-    if len(log_data.get('history', [])) > 30:
-        log_data['history'] = log_data['history'][-30:]
+    max_history = load_settings().get('max_backup_history', 30)
+    if len(log_data.get('history', [])) > max_history:
+        log_data['history'] = log_data['history'][-max_history:]
     with open(BACKUP_LOG_FILE, 'w') as f:
         json.dump(log_data, f, indent=2)
+
+
+def _files_changed_since(since_ts, *folders, exclude_names=None):
+    """Return True if any tracked file under folders was modified after since_ts."""
+    exclude_names = set(exclude_names or [])
+    for folder in folders:
+        folder = Path(folder)
+        if not folder.exists():
+            continue
+        for path in folder.rglob('*'):
+            if path.is_file() and path.name not in exclude_names:
+                try:
+                    if path.stat().st_mtime > since_ts:
+                        return True
+                except OSError:
+                    pass
+    return False
 
 
 def is_backup_configured():
@@ -905,7 +1207,8 @@ def get_backup_settings():
     settings = load_settings()
     return {
         'backup_time': settings.get('backup_time', os.environ.get('BACKUP_TIME', '03:00')),
-        'backup_path': settings.get('backup_path', 'PhotoFrameBackup')
+        'backup_path': settings.get('backup_path', 'PhotoFrameBackup'),
+        'max_backup_history': settings.get('max_backup_history', 30),
     }
 
 
@@ -928,6 +1231,24 @@ def run_backup():
     log = load_backup_log()
 
     try:
+        # Skip if nothing has changed since the last successful backup
+        _data_excludes = {'.backup.lock', '.secret_key', '.display_token', 'users.json'}
+        last_backup_str = log.get('last_backup')
+        if log.get('last_result') == 'success' and last_backup_str:
+            try:
+                last_ts = datetime.fromisoformat(last_backup_str).timestamp()
+                if not _files_changed_since(last_ts, UPLOAD_FOLDER) and \
+                   not _files_changed_since(last_ts, DATA_FOLDER, exclude_names=_data_excludes):
+                    log['history'].append({
+                        'timestamp': start_time.isoformat(),
+                        'result': 'no_changes',
+                        'duration_seconds': 0
+                    })
+                    save_backup_log(log)
+                    return {'success': True, 'no_changes': True}
+            except (ValueError, OSError):
+                pass  # Can't determine — proceed with backup
+
         backup_settings = get_backup_settings()
         remote_path = backup_settings['backup_path']
         config = str(RCLONE_CONFIG_FILE)
@@ -1239,6 +1560,10 @@ def login():
     if is_authenticated():
         return redirect(url_for('upload_page'))
 
+    if authelia_enabled():
+        next_path = request.args.get('next', '') or request.form.get('next', '')
+        return redirect(authelia_redirect_url(next_path))
+
     if request.method == 'POST':
         username = request.form.get('username', '').strip().lower()
         password = request.form.get('password', '')
@@ -1261,6 +1586,9 @@ def login():
             if mfa_required_for(username):
                 session['mfa_enrollment_required'] = True
                 return redirect(url_for('mfa_page'))
+            next_url = request.form.get('next', '').strip()
+            if next_url and next_url.startswith('/') and '//' not in next_url:
+                return redirect(next_url)
             return redirect(url_for('upload_page'))
 
         log_security_event('login', False, username=username or None)
@@ -1273,6 +1601,8 @@ def login():
 def logout():
     """Logout and clear session"""
     session.clear()
+    if authelia_enabled():
+        return redirect(f'{AUTHELIA_URL}/logout?{urlencode({"rd": request.host_url.rstrip("/") + "/login"})}')
     return redirect(url_for('login'))
 
 
@@ -1368,6 +1698,7 @@ def mfa_page():
     response = app.make_response(render_template(
         'mfa.html', methods=user_mfa_methods(username), required=mfa_required_for(username),
         passkeys_available=passkeys_available(), settings=load_settings(),
+        is_admin=is_admin(), username=username,
     ))
     response.headers['Cache-Control'] = 'no-store, private'
     return response
@@ -1614,6 +1945,21 @@ def api_security_settings():
 
 # --- Admin Routes ---
 
+@app.route('/admin')
+@admin_required
+def admin_page():
+    users = load_users()
+    user_list = [
+        {'username': uname, 'role': udata.get('role', 'user'), 'created': udata.get('created_at', 'Unknown')}
+        for uname, udata in users.items()
+    ]
+    settings = load_settings()
+    return render_template('admin.html',
+                           users=user_list,
+                           username=session.get('username'),
+                           settings=settings)
+
+
 @app.route('/admin/users')
 @admin_required
 def admin_users():
@@ -1750,6 +2096,81 @@ def api_display_enroll():
     return response
 
 
+@app.get('/api/display/device-code')
+@csrf.exempt
+def api_display_device_code():
+    """Generate a device code and return its QR data URL for the enrollment page."""
+    _cleanup_device_codes()
+    code = secrets.token_urlsafe(16)
+    _device_codes[code] = {
+        'expires_at': time.time() + _DEVICE_CODE_TTL,
+        'approved': False,
+        'approved_by': None,
+    }
+    approve_url = url_for('display_approve_page', code=code, _external=True)
+    factory = qrcode.image.svg.SvgPathImage
+    img = qrcode.make(approve_url, image_factory=factory)
+    svg_io = io.BytesIO()
+    img.save(svg_io)
+    qr_data_url = 'data:image/svg+xml;base64,' + base64.b64encode(svg_io.getvalue()).decode('ascii')
+    return jsonify({
+        'code': code,
+        'approve_url': approve_url,
+        'qr_data_url': qr_data_url,
+        'expires_in': _DEVICE_CODE_TTL,
+    })
+
+
+@app.get('/api/display/device-code/status/<code>')
+@csrf.exempt
+def api_display_device_code_status(code):
+    """Pi polls here. Sets display session and returns redirect URL when approved."""
+    if code not in _device_codes:
+        return jsonify({'status': 'invalid'}), 404
+    entry = _device_codes[code]
+    if entry['expires_at'] < time.time():
+        del _device_codes[code]
+        return jsonify({'status': 'expired'}), 410
+    if entry['approved']:
+        del _device_codes[code]
+        session['display_authenticated'] = True
+        session['display_authenticated_at'] = int(time.time())
+        session['display_session_generation'] = DISPLAY_SESSION_GENERATION
+        session.permanent = True
+        log_security_event('display_enrollment', True)
+        return jsonify({'status': 'approved', 'redirect': url_for('display_page')})
+    return jsonify({'status': 'pending', 'expires_in': int(entry['expires_at'] - time.time())})
+
+
+@app.get('/display/approve/<code>')
+@login_required
+def display_approve_page(code):
+    """Authenticated user sees the approval prompt for a pending device code."""
+    if code not in _device_codes or _device_codes[code]['expires_at'] < time.time():
+        _device_codes.pop(code, None)
+        return render_template('display_approve.html', error='This code has expired. The display will generate a new one automatically.')
+    remaining = int(_device_codes[code]['expires_at'] - time.time())
+    return render_template('display_approve.html', code=code, remaining=remaining,
+                           approver=session.get('username'))
+
+
+@app.post('/api/display/approve/<code>')
+@login_required
+def api_display_approve(code):
+    """Authenticated user approves a pending device code."""
+    if code not in _device_codes:
+        return jsonify({'error': 'Invalid or expired code'}), 404
+    if _device_codes[code]['expires_at'] < time.time():
+        del _device_codes[code]
+        return jsonify({'error': 'Code expired'}), 410
+    if _device_codes[code]['approved']:
+        return jsonify({'already': True}), 200
+    _device_codes[code]['approved'] = True
+    _device_codes[code]['approved_by'] = session.get('username', 'unknown')
+    log_security_event('display_enrollment_approved', True, username=session.get('username'))
+    return jsonify({'success': True})
+
+
 # --- API Routes ---
 
 @app.route('/api/upload', methods=['POST'])
@@ -1787,6 +2208,8 @@ def api_upload():
 
             # Compute perceptual hash for duplicate detection
             phash = compute_phash(filepath)
+            settings_for_upload = load_settings()
+            mat_color = suggest_mat_color(filepath) if settings_for_upload.get('auto_mat_color', True) else None
 
             # Add metadata
             update_image_metadata(unique_name,
@@ -1796,7 +2219,8 @@ def api_upload():
                 uploaded_by=username,
                 width=width,
                 height=height,
-                phash=phash
+                phash=phash,
+                mat_color=mat_color
             )
 
             # Generate display snapshot with default settings
@@ -1912,6 +2336,88 @@ def api_backfill_snapshots():
     return jsonify({'success': True, 'generated': count})
 
 
+def _is_portrait(img_data, threshold=1.15):
+    """Return True if an image is portrait-oriented (height/width > threshold)."""
+    w = img_data.get('width') or 0
+    h = img_data.get('height') or 0
+    return h > 0 and w > 0 and (h / w) > threshold
+
+
+def _auto_pair_portraits(slides):
+    """Pair all ungrouped portrait singles into synthetic side-by-side group slides.
+
+    Collects every portrait single (regardless of adjacency), pairs them in order
+    of their position in the shuffled list, and replaces the first portrait's slot
+    with the pair. The second portrait's original slot is removed. Auto-pairs use
+    a normalized effective scale so their rendered heights match; the original
+    per-image scale values remain unchanged in the gallery.
+    """
+    portrait_indices = [
+        idx for idx, slide in enumerate(slides)
+        if slide['type'] == 'single' and _is_portrait(slide['images'][0])
+    ]
+
+    if len(portrait_indices) < 2:
+        return slides
+
+    paired_indices = set()
+    pair_insertions = {}  # index of first portrait -> pair slide
+    for k in range(0, len(portrait_indices) - 1, 2):
+        i, j = portrait_indices[k], portrait_indices[k + 1]
+        img1 = slides[i]['images'][0]
+        img2 = slides[j]['images'][0]
+        # Group-row rendering uses scale as a relative height multiplier. Reset
+        # only the synthetic pair's effective scales so both photos share the
+        # same height; their aspect ratios still determine their widths.
+        pair_images = []
+        for image in (img1, img2):
+            pair_image = dict(image)
+            pair_image['scale'] = 1.0
+            pair_images.append(pair_image)
+        pair_key = img1['filename'] + '|' + img2['filename']
+        synthetic_id = '__pair_' + hashlib.sha1(pair_key.encode()).hexdigest()[:16]
+        paired_indices.update([i, j])
+        pair_insertions[i] = {
+            'type': 'group',
+            'group_id': synthetic_id,
+            'images': pair_images,
+            'mat_color': img1.get('mat_color') or img2.get('mat_color'),
+        }
+
+    result = []
+    for idx, slide in enumerate(slides):
+        if idx in pair_insertions:
+            result.append(pair_insertions[idx])
+        elif idx not in paired_indices:
+            result.append(slide)
+    return result
+
+
+def _ensure_auto_pair_snapshots(slides, force=False):
+    """Generate missing synthetic portrait-pair snapshots, or refresh all when forced.
+
+    Runs in a background thread; safe to call on every state poll since it's a no-op
+    when the profile-specific snapshot files already exist unless ``force`` is
+    requested.
+    """
+    settings = load_settings()
+    pair_slides = [s for s in slides
+                   if s['type'] == 'group'
+                   and s.get('group_id', '').startswith('__pair_')]
+    for profile in display_profiles(settings, active_only=True):
+        profile_settings = display_settings(settings, profile)
+        for slide in pair_slides:
+            path = SNAPSHOT_FOLDER / f"{slide['group_id']}.{profile['id']}.display.png"
+            if not force and path.exists():
+                continue
+            try:
+                _render_pair_slide_snapshot(slide, profile_settings,
+                                            UPLOAD_FOLDER, SNAPSHOT_FOLDER)
+            except Exception as e:
+                logging.warning('Auto-pair snapshot failed for %s (%s): %s',
+                                slide.get('group_id'), profile['id'], e)
+
+
 def _build_slides():
     """Build the ordered slides list from gallery data and settings."""
     settings = load_settings()
@@ -1931,7 +2437,8 @@ def _build_slides():
             'bevel_width': img.get('bevel_width'),
             'border_effect': img.get('border_effect'),
             'scale': img.get('scale', 1.0),
-            'crop': img.get('crop')
+            'crop': img.get('crop'),
+            'no_mat': img.get('no_mat'),
         }
 
     # Find which filenames are in groups
@@ -1959,7 +2466,9 @@ def _build_slides():
                 'type': 'group',
                 'group_id': group_id,
                 'images': group_images,
-                'mat_color': group.get('mat_color')
+                'mat_color': group.get('mat_color'),
+                'bevel_width': group.get('bevel_width'),
+                'border_effect': group.get('border_effect'),
             })
 
     # Add ungrouped singles
@@ -1975,6 +2484,9 @@ def _build_slides():
     if settings.get('shuffle'):
         daily_seed = datetime.now().strftime('%Y-%m-%d')
         random.Random(daily_seed).shuffle(slides)
+
+    # Auto-pair consecutive ungrouped portrait singles side-by-side
+    slides = _auto_pair_portraits(slides)
 
     return slides, all_images, settings
 
@@ -2011,16 +2523,17 @@ def api_update_image(filename):
         return jsonify({'error': 'Image not found'}), 404
 
     data = request.json
-    allowed_fields = ['enabled', 'title', 'mat_color', 'scale', 'mat_finish', 'bevel_width', 'border_effect', 'crop']
+    allowed_fields = ['enabled', 'title', 'mat_color', 'scale', 'mat_finish', 'bevel_width', 'border_effect', 'crop', 'no_mat']
     updates = {k: v for k, v in data.items() if k in allowed_fields}
 
     update_image_metadata(filename, **updates)
 
     # Re-render display snapshot if any display-affecting field changed
-    display_fields = {'mat_color', 'scale', 'mat_finish', 'bevel_width', 'border_effect', 'crop'}
+    display_fields = {'mat_color', 'scale', 'mat_finish', 'bevel_width', 'border_effect', 'crop', 'no_mat'}
     if display_fields & updates.keys():
         generate_display_snapshot(filename)
         regenerate_snapshots_for_groups_containing(filename)
+        regenerate_profile_snapshots_for_image(filename)
 
     return jsonify({'success': True})
 
@@ -2189,29 +2702,59 @@ def api_settings():
 
     settings = load_settings()
     data = request.json
+    prev_auto_mat = settings.get('auto_mat_color', True)
 
     allowed_fields = ['mat_color', 'mat_finish', 'bevel_width', 'border_effect',
                       'slideshow_interval', 'transition_duration',
                       'fit_mode', 'shuffle', 'image_order',
-                      'target_aspect_ratio']
+                      'target_aspect_ratio', 'auto_mat_color',
+                      'bevel_lit_intensity', 'bevel_lit_v', 'bevel_lit_h']
     for field in allowed_fields:
         if field in data:
             settings[field] = data[field]
 
     save_settings(settings)
 
+    # If auto-mat was just enabled, backfill images that don't have a mat color yet
+    if data.get('auto_mat_color') is True and not prev_auto_mat:
+        threading.Thread(target=backfill_mat_colors, daemon=True).start()
+
     # If display-affecting global settings changed, re-render all snapshots in background
     display_settings = {'mat_color', 'mat_finish', 'bevel_width', 'border_effect',
-                        'fit_mode', 'target_aspect_ratio'}
+                        'fit_mode', 'target_aspect_ratio',
+                        'bevel_lit_intensity', 'bevel_lit_v', 'bevel_lit_h'}
     if display_settings & data.keys():
         def _rerender_all():
             gallery = load_gallery()
             new_settings = load_settings()
             _regenerate_all_snapshots(gallery, new_settings, UPLOAD_FOLDER, SNAPSHOT_FOLDER)
+            slides, _, _ = _build_slides()
+            _ensure_auto_pair_snapshots(slides, force=True)
         thread = threading.Thread(target=_rerender_all, daemon=True)
         thread.start()
 
     return jsonify(settings)
+
+
+@app.route('/api/reset-mat-colors', methods=['POST'])
+@api_login_required
+def api_reset_mat_colors():
+    """Clear all per-image mat colors so they fall back to the global default."""
+    gallery = load_gallery()
+    count = 0
+    for filename, meta in gallery.get('images', {}).items():
+        if meta.get('mat_color') is not None:
+            meta['mat_color'] = None
+            count += 1
+    if count:
+        save_gallery(gallery)
+        # Re-render snapshots in background
+        def _rerender():
+            g = load_gallery()
+            s = load_settings()
+            _regenerate_all_snapshots(g, s, UPLOAD_FOLDER, SNAPSHOT_FOLDER)
+        threading.Thread(target=_rerender, daemon=True).start()
+    return jsonify({'reset': count})
 
 
 @app.route('/api/reorder', methods=['POST'])
@@ -2258,6 +2801,20 @@ def serve_thumbnail(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
+@app.route('/snapshots/<filename>')
+@display_api_required
+def serve_snapshot(filename):
+    """Serve pre-rendered display snapshots (PNG files baked by render_display.py)."""
+    if not filename.endswith('.display.png'):
+        return jsonify({'error': 'Not found'}), 404
+    snap_path = SNAPSHOT_FOLDER / filename
+    if not snap_path.exists():
+        return jsonify({'error': 'Not found'}), 404
+    response = send_from_directory(SNAPSHOT_FOLDER, filename)
+    response.headers['Cache-Control'] = 'public, max-age=300'
+    return response
+
+
 @app.get('/api/display/enrollment-secret')
 @api_admin_required
 def api_display_enrollment_secret():
@@ -2288,53 +2845,121 @@ def api_rotate_display_secret():
     return response
 
 
-@app.route('/api/display/state')
+@app.route('/api/artworks')
+@display_api_required
+def api_artworks():
+    return jsonify({'artworks': artwork_catalog()})
+
+
+@app.route("/api/displays", methods=["GET", "POST"])
+@api_login_required
+def api_displays():
+    settings = load_settings(); profiles = display_profiles(settings)
+    if request.method == "GET": return jsonify({"displays": profiles})
+    data = request.json or {}
+    try: width, height = int(data.get("width", 1920)), int(data.get("height", 1080))
+    except (TypeError, ValueError): return jsonify({"error": "Width and height must be numbers"}), 400
+    if not 100 <= width <= 10000 or not 100 <= height <= 10000: return jsonify({"error": "Invalid display dimensions"}), 400
+    profile = {"id": uuid.uuid4().hex[:12], "name": str(data.get("name") or "New display")[:80], "active": bool(data.get("active", True)), "width": width, "height": height, "synchronized": bool(data.get("synchronized", True))}
+    try:
+        profile['content'] = validate_content(data.get('content', {}))
+    except ValueError as error:
+        return jsonify({'error': str(error)}), 400
+    settings["displays"] = profiles + [profile]; save_settings(settings)
+    return jsonify({"display": profile}), 201
+
+@app.route("/api/displays/<display_id>", methods=["PATCH", "DELETE"])
+@api_login_required
+def api_display_profile(display_id):
+    settings = load_settings(); profiles = display_profiles(settings)
+    profile = next((p for p in profiles if p["id"] == display_id), None)
+    if not profile: return jsonify({"error": "Display not found"}), 404
+    previous_mode = profile['content']['mode']
+    if request.method == "DELETE":
+        if len(profiles) == 1: return jsonify({"error": "At least one display is required"}), 400
+        settings["displays"] = [p for p in profiles if p["id"] != display_id]; save_settings(settings)
+        _art_display_states.pop(display_id, None)
+        _independent_display_states.pop(display_id, None)
+        return jsonify({"success": True})
+    data = request.json or {}
+    if 'content' in data:
+        try:
+            profile['content'] = validate_content(data['content'], profile.get('content'))
+        except ValueError as error:
+            return jsonify({'error': str(error)}), 400
+    for key in ("name", "active", "synchronized"):
+        if key in data: profile[key] = str(data[key])[:80] if key == "name" else bool(data[key])
+    for key in ("width", "height"):
+        if key in data:
+            try: profile[key] = int(data[key])
+            except (TypeError, ValueError): return jsonify({"error": f"{key} must be a number"}), 400
+            if not 100 <= profile[key] <= 10000:
+                return jsonify({'error': 'Invalid display dimensions'}), 400
+    if not any(p.get("active", True) for p in profiles): return jsonify({"error": "At least one display must remain active"}), 400
+    if previous_mode != profile['content']['mode'] and not profile.get('synchronized', True):
+        photo_state = _profile_state(profile)
+        if profile['content']['mode'] == 'art':
+            slides, _, _ = _build_slides()
+            photo_state['index'] = _get_effective_index(len(slides), photo_state, display_settings(settings, profile))
+        photo_state['last_advanced_at'] = time.time()
+    settings["displays"] = profiles; save_settings(settings)
+    return jsonify({"display": profile})
+
+@app.route("/api/display/state")
 @display_api_required
 def api_display_state():
-    """Get current slideshow state (index, paused, total slides)."""
+    """Return the current render for this display profile."""
+    settings = load_settings()
+    profile = get_display_profile(settings, request.args.get("display"))
+    if profile['content']['mode'] == 'art':
+        return jsonify(_art_state_response(profile))
+    profile_settings = display_settings(settings, profile)
+    state = _profile_state(profile)
     slides, _, _ = _build_slides()
     total = len(slides)
+    index = _get_effective_index(total, state, profile_settings)
+    current_slide = slides[index] if total else None
     return jsonify({
-        'index': _get_effective_index(total),
-        'paused': _display_state['paused'],
-        'total': total,
+        "display": profile, "content_mode": "photos", "index": index, "paused": state["paused"], "total": total,
+        "snapshot_url": _profile_snapshot_url(current_slide, profile),
+        "mat_color": (current_slide.get("mat_color") if current_slide else None) or profile_settings.get("mat_color", "#ffffff"),
+        "transition_duration": profile_settings.get("transition_duration", 1),
     })
 
-
-@app.route('/api/display/control', methods=['POST'])
+@app.route("/api/display/control", methods=["POST"])
 @display_api_required
 def api_display_control():
-    """Control the slideshow: next, prev, pause, play."""
     data = request.json or {}
-    action = data.get('action')
-    if action not in ('next', 'prev', 'pause', 'play'):
-        return jsonify({'error': 'Invalid action. Use next, prev, pause, or play.'}), 400
-
+    action = data.get("action")
+    if action not in ("next", "prev", "pause", "play"):
+        return jsonify({"error": "Invalid action. Use next, prev, pause, or play."}), 400
+    settings = load_settings()
+    profile = get_display_profile(settings, data.get("display") or request.args.get("display"))
+    if profile['content']['mode'] == 'art':
+        if action in ('next', 'prev'):
+            return jsonify({'error': 'Artwork navigation is unavailable for a single artwork'}), 400
+        state = _art_display_states.setdefault(profile['id'], {'paused': False})
+        state['paused'] = action == 'pause'
+        return jsonify(_art_state_response(profile))
+    profile_settings = display_settings(settings, profile)
+    state = _profile_state(profile)
     slides, _, _ = _build_slides()
     total = len(slides)
-    if total == 0:
-        return jsonify({'index': 0, 'paused': _display_state['paused']})
-
-    now = time.time()
-    current = _get_effective_index(total)
-
-    if action == 'next':
-        _display_state['index'] = (current + 1) % total
-        _display_state['last_advanced_at'] = now
-    elif action == 'prev':
-        _display_state['index'] = (current - 1) % total
-        _display_state['last_advanced_at'] = now
-    elif action == 'pause':
-        _display_state['index'] = current
-        _display_state['paused'] = True
-    elif action == 'play':
-        _display_state['paused'] = False
-        _display_state['last_advanced_at'] = now
-
-    return jsonify({
-        'index': _get_effective_index(total),
-        'paused': _display_state['paused'],
-    })
+    if not total:
+        return jsonify({"index": 0, "paused": state["paused"]})
+    now, current = time.time(), _get_effective_index(total, state, profile_settings)
+    if action == "next":
+        state["index"] = (current + 1) % total
+        state["last_advanced_at"] = now
+    elif action == "prev":
+        state["index"] = (current - 1) % total
+        state["last_advanced_at"] = now
+    elif action == "pause":
+        state["index"], state["paused"] = current, True
+    else:
+        state["paused"], state["last_advanced_at"] = False, now
+    index = _get_effective_index(total, state, profile_settings)
+    return jsonify({"index": index, "paused": state["paused"], "snapshot_url": _profile_snapshot_url(slides[index], profile)})
 
 
 # --- Backup Routes ---
@@ -2342,10 +2967,8 @@ def api_display_control():
 @app.route('/backup')
 @admin_required
 def backup_page():
-    """Render the backup settings page"""
-    return render_template('backup.html',
-                           is_admin=True,
-                           username=session.get('username'))
+    from flask import redirect
+    return redirect('/admin#backup')
 
 
 @app.route('/api/backup/status', methods=['GET'])
@@ -2371,7 +2994,8 @@ def api_backup_status():
         'last_error': log.get('last_error'),
         'next_scheduled': next_run,
         'backup_time': backup_settings['backup_time'],
-        'backup_path': backup_settings['backup_path']
+        'backup_path': backup_settings['backup_path'],
+        'max_backup_history': backup_settings['max_backup_history'],
     })
 
 
@@ -2478,6 +3102,14 @@ def api_backup_settings():
         path = data['backup_path'].strip()
         if path:
             settings['backup_path'] = path
+
+    if 'max_backup_history' in data:
+        try:
+            val = int(data['max_backup_history'])
+            if 1 <= val <= 200:
+                settings['max_backup_history'] = val
+        except (ValueError, TypeError):
+            return jsonify({'error': 'max_backup_history must be an integer between 1 and 200'}), 400
 
     save_settings(settings)
     return jsonify({'success': True})
@@ -2670,6 +3302,7 @@ def apply_browser_security_headers(response):
         '/login', '/change-password', '/mfa', '/admin/users',
         '/api/display/enroll', '/api/display/enrollment-secret', '/api/display/rotate-secret',
         '/api/display/state', '/api/settings', '/api/admin/', '/api/mfa/', '/api/cec/agent-token',
+        '/display/approve/', '/api/display/approve/',
     )
     if any(request.path == path or (path.endswith('/') and request.path.startswith(path))
            for path in sensitive_paths):
@@ -2691,6 +3324,14 @@ def apply_browser_security_headers(response):
 _thumb_count = backfill_thumbnails()
 if _thumb_count > 0:
     print(f"Generated {_thumb_count} missing thumbnail(s)")
+
+# Backfill mat colors for existing images on startup (runs in background to avoid slowing boot)
+def _backfill_mat_colors_bg():
+    count = backfill_mat_colors()
+    if count > 0:
+        print(f"Suggested mat colors for {count} existing image(s)")
+
+threading.Thread(target=_backfill_mat_colors_bg, daemon=True).start()
 
 
 # ============ Main ============

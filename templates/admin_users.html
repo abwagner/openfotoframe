@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/openfotoframe-192.png') }}">
+    <link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='icons/openfotoframe-192.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+    <meta name="theme-color" content="#171513">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>User Management - OpenFotoFrame</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_users.css') }}">
@@ -13,15 +17,16 @@
         <header>
             <div class="header-top">
                 <div>
-                    <h1>👥 User Management</h1>
-                    <p class="subtitle">Manage who can access the photo frame</p>
+                    <h1>OpenFotoFrame</h1>
+                    <p class="subtitle">User Management</p>
                 </div>
                 <nav class="nav-links">
-                    <a href="/upload">📤 Upload</a>
-                    <a href="/mfa">🔐 MFA</a>
-                    <a href="/gallery">🖼️ Gallery</a>
-                    <a href="/display" target="_blank">📺 Display</a>
-                    <a href="/logout">🚪 Logout</a>
+                    <a href="/upload">Photos</a>
+                    <a href="/admin">Admin</a>
+                    <a href="/backup">Backup</a>
+                    <a href="/mfa">MFA</a>
+                    <a href="/change-password">Password</a>
+                    <a href="/logout">Logout</a>
                 </nav>
             </div>
         </header>

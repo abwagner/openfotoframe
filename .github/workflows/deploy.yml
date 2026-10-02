@@ -37,7 +37,7 @@ jobs:
           key: ${{ secrets.PI_SSH_KEY }}
           port: ${{ secrets.PI_SSH_PORT || 22 }}
           script: |
-            cd ~/pi-photo-frame
+            cd ~/openfotoframe
             # Check maintenance window (skip deploy if TV is on)
             MW=$(curl -skf https://localhost/api/maintenance-window 2>/dev/null || echo '{}')
             CAN_DEPLOY=$(echo "$MW" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('can_deploy',True))" 2>/dev/null || echo "True")

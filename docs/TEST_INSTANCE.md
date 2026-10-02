@@ -1,11 +1,11 @@
 # OpenFotoFrame test instance
 
-The isolated server instance is available at **https://frame-test.swagner.tech/upload**.
+The isolated server instance is available at **https://frame-dev.swagner.tech/upload**.
 Sign in through the existing Authelia account. Andrew maps to the test administrator;
 Allison maps to a separate test user. No production passwords, MFA secrets, or
 session/enrollment credentials are copied into the test instance.
 
-The test TV view is **https://frame-test.swagner.tech/display**. Enroll it through
+The test TV view is **https://frame-dev.swagner.tech/display**. Enroll it through
 that instance's display enrollment flow, or open it while logged in. It starts in
 Art mode with Organic Cells and an empty photo gallery. Use **Settings → Displays →
 Edit content** to try colorways, custom cell colors, grout colors, or photo mode.
@@ -18,7 +18,7 @@ Edit content** to try colorways, custom cell colors, grout colors, or photo mode
 | Compose project | `swagner-home` | `openfotoframe-test` |
 | Data volume | `photoframe_data` | `photoframe_test_data` |
 | Upload volume | `photoframe_uploads` | `photoframe_test_uploads` |
-| Hostname | `frame.swagner.tech` | `frame-test.swagner.tech` |
+| Hostname | `frame.swagner.tech` | `frame-dev.swagner.tech` |
 
 The test instance has its own settings, users, gallery, session key, and display
 and CEC credentials. It starts without TV schedules, backup credentials, CEC device

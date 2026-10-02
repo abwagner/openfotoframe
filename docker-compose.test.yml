@@ -23,7 +23,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=proxy
-      - traefik.http.routers.photoframe-test.rule=Host(`frame-test.swagner.tech`)
+      - traefik.http.routers.photoframe-test.rule=Host(`frame-dev.swagner.tech`)
       - traefik.http.routers.photoframe-test.entrypoints=websecure
       - traefik.http.routers.photoframe-test.tls.certresolver=letsencrypt
       - traefik.http.routers.photoframe-test.middlewares=crowdsec@docker,authelia@docker

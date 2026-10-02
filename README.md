@@ -186,6 +186,8 @@ loaded. Fresh startup needs the backend. Radar integration is planned separately
 normal kiosk art currently runs in ambient mode. New artwork modules can be added
 through the catalog and shared lifecycle in `static/js/display-art.js`.
 
+A separately deployed test instance is documented in [docs/TEST_INSTANCE.md](docs/TEST_INSTANCE.md).
+
 ## TV Power Schedule (HDMI-CEC)
 
 Control your TV's power automatically using HDMI-CEC. During install, choose "Enable HDMI-CEC TV power control" to set up the CEC device passthrough.

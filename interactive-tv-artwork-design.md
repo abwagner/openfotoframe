@@ -251,7 +251,12 @@ uses an unauthenticated alternate art page or accepts arbitrary executable asset
 
 Implemented shape options: organic cells (the original default), circles, rectangles,
 hexagons, triangles, and diamonds. Circle gap fill (0–1) adds smaller circles into
-free space; rectangle squareness (0–1) changes tile aspect from 4:1 to 1:1.
+free space; rectangle squareness (0–1) biases the rectangle size distribution from elongated tiles toward squares.
+All geometric patterns use seeded size/location variation; density sets typical
+size. Polygon layouts partition the exact screen bounds with fitted boundary
+cells. Circle packing keeps every circle whole inside the screen, with grout
+filling the gaps. Viewer influence sweeps equally over the full screen height;
+room distance changes strength only slightly.
 These settings share the existing palette, independent grout, seeded geometry,
 and viewer interaction. Older saved configurations receive the organic default.
 

@@ -113,8 +113,10 @@ export function createArtwork({ container, seed, settings }) {
                 let position = Math.max(0, Math.min(palette.length - 1, (0.5 + field / 7) * (palette.length - 1)));
                 let illumination = 0;
                 for (const p of influences) {
-                    const distance = Math.hypot(x - (p.x + 1) / 2, (y - 0.5) * 0.6);
-                    const reach = Math.exp(-distance * distance * 8) * (1 - p.y * 0.7)
+                    // Viewer y describes room distance, not a screen hotspot. Keep
+                    // the horizontal sweep equally strong over the full height.
+                    const distance = Math.abs(x - (p.x + 1) / 2);
+                    const reach = Math.exp(-distance * distance * 8) * (1 - p.y * 0.15)
                         * p.weight * settings.interaction_strength;
                     // Sweep through whole palette stops instead of nudging a
                     // compressed color field. Motion adds a broad moving ripple.

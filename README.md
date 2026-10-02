@@ -170,7 +170,7 @@ Mat color, mat finish, border effect, and image scale can be overridden per imag
 ## Generated Art
 
 Open **Settings → Displays → Edit content** for a display and choose **Art**.
-Choose Organic cells, Circles, Rectangles, Hexagons, Triangles, or Diamonds in the content editor. Circles offer a gap-fill slider that adds smaller circles; rectangles offer a squareness slider from elongated tiles to squares. Shape changes preserve the palette, grout, seed, and viewer response.
+Choose Organic cells, Circles, Rectangles, Hexagons, Triangles, or Diamonds in the content editor. Circles offer a gap-fill slider that adds smaller circles; rectangles offer a squareness slider that biases their proportions toward squares. Each seed varies sizes and locations; density controls typical size. Polygon cells fit the screen as complete partitions, with adapted boundary cells rather than cropped rows. Circles remain whole, with grout between them. Viewer color sweeps cover the full height. Shape changes preserve the palette, grout, seed, and viewer response.
 
 Organic Cells animates locally in the browser and works with no photos or sensor.
 Select a colorway to set both cells and grout, or choose a cell palette and grout
@@ -209,7 +209,13 @@ In the web UI settings panel:
 - `cec-utils` is installed automatically during setup
 - The CEC device (`/dev/cec0`) must be passed through to the Docker container
 
-### Troubleshooting CEC
+### Development checks
+
+Run the backend suite with `pytest`. With Node.js installed, run
+`node --test tests/artwork_geometry.test.mjs` to check seeded geometry, varied
+sizes, complete polygon coverage, whole circles, and shape controls.
+
+## Troubleshooting CEC
 
 - If CEC status shows "unavailable", ensure the device mapping is uncommented in `docker-compose.yml`
 - Some TVs use different CEC brand names (Anynet+, Bravia Sync, SimpLink, etc.) — the protocol is the same
@@ -565,6 +571,12 @@ decompression-bomb warnings, corrupt data, decoded images over 80 million pixels
 or either dimension over 20,000 pixels return a friendly 400 and leave no partial
 file. The limits can be adjusted with `MAX_IMAGE_PIXELS` and `MAX_IMAGE_DIMENSION`;
 the defaults accommodate ordinary modern phone photos.
+
+## Development checks
+
+Run the backend suite with `pytest`. With Node.js installed, run
+`node --test tests/artwork_geometry.test.mjs` to check seeded geometry, varied
+sizes, complete polygon coverage, whole circles, and shape controls.
 
 ## Troubleshooting
 

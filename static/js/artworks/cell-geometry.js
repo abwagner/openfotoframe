@@ -1,5 +1,5 @@
 // Seeded, bounded geometry. Density sets typical size; color changes never
-// regenerate the layout. Polygon partitions share edges instead of cropping tiles.
+// regenerate the layout. Regular tilings keep their shape; only edge tiles are clipped.
 export function patternedCells(width, height, settings, rng) {
     const cells = [];
     const count = settings.cell_density;
@@ -18,13 +18,22 @@ export function patternedCells(width, height, settings, rng) {
         const path = new Path2D(); path.arc(x, y, radius, 0, Math.PI * 2);
         cells.push({ x, y, radius, path, phase: rng() * Math.PI * 2 });
     }
-    function divisions(length, segments) {
-        const weights = Array.from({length: segments}, () => 0.55 + rng());
-        const scale = length / weights.reduce((sum, w) => sum + w, 0);
-        const cuts = [0];
-        for (const weight of weights) cuts.push(cuts.at(-1) + weight * scale);
-        cuts[cuts.length - 1] = length;
-        return cuts;
+    function clippedPolygon(vertices) {
+        // Intersect a genuine tile with the viewport without warping its interior.
+        for (const [axis, limit, sign] of [[0,0,-1],[0,width,1],[1,0,-1],[1,height,1]]) {
+            const clipped = [];
+            vertices.forEach((a, i) => {
+                const b = vertices[(i + 1) % vertices.length];
+                const da = sign * (a[axis] - limit), db = sign * (b[axis] - limit);
+                if (da <= 0) clipped.push(a);
+                if ((da <= 0) !== (db <= 0)) {
+                    const t = da / (da - db);
+                    clipped.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]);
+                }
+            });
+            vertices = clipped;
+        }
+        if (vertices.length >= 3) polygon(vertices);
     }
     if (settings.shape === 'circles') {
         const gap = Math.max(2, Math.min(width, height) * 0.004);
@@ -77,79 +86,41 @@ export function patternedCells(width, height, settings, rng) {
         }
         for (const {x,y,w,h} of tiles) polygon([[x,y],[x+w,y],[x+w,y+h],[x,y+h]]);
     } else if (settings.shape === 'hexagons') {
-        // Staggered seeds produce varied hexagonal cells. Boundary cells are
-        // solved against the screen itself, rather than half a cropped hex row.
-        const columns = Math.max(2, Math.round(Math.sqrt(count * width / height)));
-        const rows = Math.max(2, Math.round(count / columns));
-        const xs = divisions(width, columns), ys = divisions(height, rows);
-        const points = [];
-        for (let row = 0; row < rows; row++) for (let col = 0; col < columns; col++) {
-            const dx = xs[col+1]-xs[col], dy = ys[row+1]-ys[row];
-            points.push([xs[col] + dx * (0.4 + rng() * 0.2 + (row % 2 ? 0.25 : -0.15)),
-                ys[row] + dy * (0.35 + rng() * 0.3)]);
-        }
-        for (const [px,py] of points) {
-            let vertices = [[0,0],[width,0],[width,height],[0,height]];
-            for (const [qx,qy] of points) {
-                if (px === qx && py === qy) continue;
-                const nx = qx-px, ny = qy-py, limit = (qx*qx+qy*qy-px*px-py*py)/2;
-                const clipped = [];
-                vertices.forEach((a,i) => {
-                    const b = vertices[(i+1)%vertices.length];
-                    const da = a[0]*nx+a[1]*ny-limit, db = b[0]*nx+b[1]*ny-limit;
-                    if (da <= 0) clipped.push(a);
-                    if ((da <= 0) !== (db <= 0)) {
-                        const t = da/(da-db);clipped.push([a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1])]);
-                    }
-                });
-                vertices = clipped;
+        const radius = Math.sqrt(unit * unit / (3 * Math.sqrt(3) / 2));
+        const dx = radius * 1.5, dy = radius * Math.sqrt(3);
+        const ox = rng() * dx, oy = rng() * dy;
+        for (let col = -2; col <= Math.ceil(width / dx) + 1; col++) {
+            for (let row = -2; row <= Math.ceil(height / dy) + 1; row++) {
+                const x = ox + col * dx, y = oy + (row + (col & 1) / 2) * dy;
+                clippedPolygon(Array.from({length: 6}, (_, i) => {
+                    const angle = i * Math.PI / 3;
+                    return [x + radius * Math.cos(angle), y + radius * Math.sin(angle)];
+                }));
             }
-            polygon(vertices);
         }
-    } else if (settings.shape === 'triangles' || settings.shape === 'diamonds') {
-        const desired = settings.shape === 'triangles' ? count / 2 : count;
-        const columns = Math.max(2, Math.round(Math.sqrt(desired * width / height)));
-        const rows = Math.max(2, Math.round(desired / columns));
-        const xs = divisions(width, columns), ys = divisions(height, rows);
-        const mesh = ys.map((y,row) => xs.map((x,col) => {
-            // Keep perimeter vertices on their boundary, while interior joints
-            // move together so adjacent cells remain a complete partition.
-            const dx = Math.min(xs[col]-xs[col-1],xs[col+1]-xs[col]);
-            const dy = Math.min(ys[row]-ys[row-1],ys[row+1]-ys[row]);
-            return [col === 0 || col === columns ? x : x + (rng()-0.5)*dx*(settings.shape === 'diamonds' ? 0.25 : 0.7),
-                row === 0 || row === rows ? y : y + (rng()-0.5)*dy*(settings.shape === 'diamonds' ? 0.25 : 0.7)];
-        }));
-        function diamond(vertices) {
-            // Turn the fitted mesh into a diamond lattice. A radial square map
-            // preserves boundary order; explicitly include any screen corner
-            // crossed by an edge so every perimeter cell stays whole.
-            const mapped = vertices.map(([x,y]) => {
-                const u=x/width*2-1,v=y/height*2-1,r=Math.max(Math.abs(u),Math.abs(v));
-                const angle=Math.atan2(v,u)+Math.PI/4;
-                const cx=Math.cos(angle),cy=Math.sin(angle),scale=r/Math.max(Math.abs(cx),Math.abs(cy));
-                return [(cx*scale+1)*width/2,(cy*scale+1)*height/2];
-            });
-            const fitted=[];
-            const close=(a,b)=>Math.abs(a-b)<1e-7;
-            for(let i=0;i<vertices.length;i++) {
-                const a=vertices[i],b=vertices[(i+1)%vertices.length];
-                const p=mapped[i],q=mapped[(i+1)%mapped.length];
-                fitted.push(p);
-                const boundary=(close(a[0],b[0]) && (close(a[0],0)||close(a[0],width)))
-                    || (close(a[1],b[1]) && (close(a[1],0)||close(a[1],height)));
-                if(boundary && !close(p[0],q[0]) && !close(p[1],q[1])) {
-                    for(const [x,y] of [[0,0],[width,0],[width,height],[0,height]]) {
-                        if((close(p[0],x)&&close(q[1],y)) || (close(q[0],x)&&close(p[1],y))) fitted.push([x,y]);
-                    }
-                }
+    } else if (settings.shape === 'triangles') {
+        const side = Math.sqrt(unit * unit * 4 / Math.sqrt(3));
+        const dy = side * Math.sqrt(3) / 2;
+        const ox = rng() * side, oy = rng() * dy;
+        for (let row = -2; row <= Math.ceil(height / dy) + 1; row++) {
+            for (let col = -2; col <= Math.ceil(width / side) + 1; col++) {
+                const x = ox + (col + (row & 1) / 2) * side, y = oy + row * dy;
+                const shift = (row & 1) ? -side / 2 : side / 2;
+                const a = [x,y], b = [x+side,y];
+                const c = [x+side+shift,y+dy], d = [x+shift,y+dy];
+                if (row & 1) { clippedPolygon([a,b,c]); clippedPolygon([a,c,d]); }
+                else { clippedPolygon([a,b,d]); clippedPolygon([b,c,d]); }
             }
-            polygon(fitted);
         }
-        for (let row = 0; row < rows; row++) for (let col = 0; col < columns; col++) {
-            const a=mesh[row][col],b=mesh[row][col+1],c=mesh[row+1][col+1],d=mesh[row+1][col];
-            if (settings.shape === 'diamonds') diamond([a,b,c,d]);
-            else if (rng() < 0.5) { polygon([a,b,c]);polygon([a,c,d]); }
-            else { polygon([a,b,d]);polygon([b,c,d]); }
+    } else if (settings.shape === 'diamonds') {
+        const radius = unit / Math.sqrt(2);
+        const dx = radius * 2, dy = radius;
+        const ox = rng() * dx, oy = rng() * dy;
+        for (let row = -2; row <= Math.ceil(height / dy) + 1; row++) {
+            for (let col = -2; col <= Math.ceil(width / dx) + 1; col++) {
+                const x = ox + (col + (row & 1) / 2) * dx, y = oy + row * dy;
+                clippedPolygon([[x,y-radius],[x+radius,y],[x,y+radius],[x-radius,y]]);
+            }
         }
     }
     return cells;

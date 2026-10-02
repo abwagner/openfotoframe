@@ -113,13 +113,16 @@ export function createArtwork({ container, seed, settings }) {
                 let position = Math.max(0, Math.min(palette.length - 1, (0.5 + field / 7) * (palette.length - 1)));
                 let illumination = 0;
                 for (const p of influences) {
-                    // Viewer y describes room distance, not a screen hotspot. Keep
-                    // the horizontal sweep equally strong over the full height.
-                    const distance = Math.abs(x - (p.x + 1) / 2);
-                    const reach = Math.exp(-distance * distance * 8) * (1 - p.y * 0.15)
+                    // Measure in pixels so the hotspot stays circular at any aspect ratio.
+                    // Interaction coordinates are x in [-1,1], y in [0,1].
+                    const dx = cell.x - (p.x + 1) / 2 * width;
+                    const dy = cell.y - p.y * height;
+                    const radius = Math.min(width, height) * 0.14;
+                    const distance = Math.hypot(dx, dy) / radius;
+                    const reach = Math.exp(-distance * distance / 2)
                         * p.weight * settings.interaction_strength;
                     // Sweep through whole palette stops instead of nudging a
-                    // compressed color field. Motion adds a broad moving ripple.
+                    // compressed color field. Motion adds a local moving ripple.
                     position += reach * (palette.length - 1)
                         * (1.6 + Math.min(p.speed, 2) * 0.55 * Math.sin(distance * 12 - time * 1.5));
                     illumination += reach * 0.12;

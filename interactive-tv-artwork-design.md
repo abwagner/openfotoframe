@@ -252,11 +252,20 @@ uses an unauthenticated alternate art page or accepts arbitrary executable asset
 Implemented shape options: organic cells (the original default), circles, rectangles,
 hexagons, triangles, and diamonds. Circle gap fill (0–1) adds smaller circles into
 free space; rectangle squareness (0–1) biases the rectangle size distribution from elongated tiles toward squares.
-All geometric patterns use seeded size/location variation; density sets typical
-size. Polygon layouts partition the exact screen bounds with fitted boundary
-cells. Circle packing keeps every circle whole inside the screen, with grout
-filling the gaps. Viewer influence sweeps equally over the full screen height;
-room distance changes strength only slightly.
+Density sets typical size. Hexagons, triangles, and diamonds use regular tilings
+with seeded offsets; interior tiles keep equal sides and regular angles, and only
+viewport edge tiles are clipped. Rectangles and circles retain seeded size variation.
+Circle packing keeps every circle whole inside the screen, with grout filling the
+gaps. Viewer influence is a circular hotspot centered on normalized interaction
+coordinates (x in −1–1, y in 0–1), with a Gaussian radius of 14% of the shorter
+screen dimension. It follows both axes with smoothing and fades after departure.
+
+Partial boundary tiles are necessary for these regular tilings to cover a rectangular
+viewport: regular hexagon corners are 120° and equilateral triangle corners are 60°,
+so neither can compose a 90° screen corner using whole tiles. The diamond lattice
+has sloping edges that cannot form the horizontal and vertical screen boundaries.
+Arbitrary triangles (for example, two right triangles splitting a rectangle) can
+cover a rectangle without partials, but do not preserve this equilateral pattern.
 These settings share the existing palette, independent grout, seeded geometry,
 and viewer interaction. Older saved configurations receive the organic default.
 

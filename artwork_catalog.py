@@ -45,7 +45,7 @@ ARTWORKS = {
             {'key': 'custom_cell_colors', 'label': 'Custom cell colors', 'type': 'color-list', 'min': 2, 'max': 12},
             {'key': 'grout_color', 'label': 'Grout color', 'type': 'color'},
             {'key': 'cell_density', 'label': 'Cell density', 'type': 'integer', 'min': 20, 'max': 300, 'step': 1,
-             'help': 'Higher density creates more, generally smaller shapes. Sizes vary within each seeded pattern.'},
+             'help': 'Higher density creates more, generally smaller shapes. Regular tiles repeat; circles and rectangles vary in size.'},
             {'key': 'idle_speed', 'label': 'Color drift', 'type': 'number', 'min': 0, 'max': 1, 'step': 0.01},
             {'key': 'interaction_strength', 'label': 'Viewer influence', 'type': 'number', 'min': 0, 'max': 1, 'step': 0.01},
         ],

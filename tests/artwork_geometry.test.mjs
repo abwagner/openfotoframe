@@ -34,15 +34,15 @@ function inside(x,y,vertices) {
     return result;
 }
 for(const shape of ['rectangles','triangles','diamonds','hexagons']) {
-    test(`${shape}: exact bounded partition, seeded size variation`, () => {
+    test(`${shape}: exact bounded partition and reproducible seed`, () => {
         for(const [w,h] of [[1280,720],[720,1280],[853,479]]) for(const seed of [42173,7,891]) {
             const cells=generate(shape,w,h,seed);
             for(const cell of cells) for(const [x,y] of cell.vertices) {
-                assert.ok(x>=-1e-7 && x<=w+1e-7 && y>=-1e-7 && y<=h+1e-7,'No clipped tiles');
+                assert.ok(x>=-1e-7 && x<=w+1e-7 && y>=-1e-7 && y<=h+1e-7,'Clipped vertices stay within the viewport');
             }
             const areas=cells.map(c=>area(c.vertices));
             assert.ok(Math.abs(areas.reduce((a,b)=>a+b,0)-w*h)<w*h*1e-8,'Areas exactly fill screen');
-            assert.ok(Math.max(...areas)/Math.min(...areas)>1.5,'Sizes vary at default settings');
+            assert.ok(Math.max(...areas)/Math.min(...areas)>1.5,'Boundary fragments have smaller areas');
             // Check both overlaps and holes, including points next to every edge.
             for(let iy=0;iy<21;iy++) for(let ix=0;ix<31;ix++) {
                 const x=(ix+0.17)/31*w,y=(iy+0.23)/21*h;
@@ -86,3 +86,24 @@ test('Circle gap fill continues after unsuccessful candidate batches', () => {
     });
     assert.ok(counts[0]<counts[1] && counts[1]<counts[2]);
 });
+
+for (const [shape, sides] of [['hexagons',6], ['triangles',3], ['diamonds',4]]) {
+    test(`${shape}: interior tiles retain regular sides and angles`, () => {
+        for (const [w,h] of [[1280,720],[720,1280],[853,479]]) {
+            const interior = generate(shape,w,h).filter(c => c.vertices.every(([x,y]) => x>1e-7 && x<w-1e-7 && y>1e-7 && y<h-1e-7));
+            assert.ok(interior.length > 10);
+            for (const {vertices} of interior) {
+                assert.equal(vertices.length,sides);
+                const edges = vertices.map((a,i) => {
+                    const b=vertices[(i+1)%sides]; return [b[0]-a[0],b[1]-a[1]];
+                });
+                const length = Math.hypot(...edges[0]);
+                for (let i=0;i<sides;i++) {
+                    const a=edges[i], b=edges[(i+1)%sides];
+                    assert.ok(Math.abs(Math.hypot(...a)-length)<1e-7,'Equal side lengths');
+                    assert.ok(Math.abs((a[0]*b[0]+a[1]*b[1])/(length*length)-Math.cos(2*Math.PI/sides))<1e-7,'Regular angles');
+                }
+            }
+        }
+    });
+}

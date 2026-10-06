@@ -8,5 +8,5 @@ imagehash==4.3.2
 pytest==9.0.3
 gunicorn==25.3.0
 PyOTP==2.10.0
-cryptography==49.0.0
+cryptography==50.0.2
 webauthn==3.0.0

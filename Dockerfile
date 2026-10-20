@@ -1,7 +1,7 @@
 # OpenFotoFrame - Docker Image
 # Supports both AMD64 and ARM64 (Raspberry Pi 4)
 
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1

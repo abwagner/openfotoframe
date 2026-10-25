@@ -39,6 +39,14 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: true
 schemes:
+  OpenFotoFrameTailscale:
+    build:
+      targets:
+        OpenFotoFrame: all
+    test:
+      targets: [OpenFotoFrameUITests]
+      environmentVariables:
+        FRAME_TEST_TAILSCALE: "1"
   OpenFotoFrame:
     build:
       targets:

@@ -3,6 +3,7 @@ import XCTest
 final class OpenFotoFrameUITests: XCTestCase {
     func testServerValidation() {
         let app = XCUIApplication()
+        app.launchArguments = ["--manual-frame-connection"]
         app.launch()
         resetServer(app)
         let address = app.textFields["serverAddress"]
@@ -25,6 +26,7 @@ final class OpenFotoFrameUITests: XCTestCase {
             throw XCTSkip("Set FRAME_TEST_SERVER, FRAME_TEST_USERNAME, and FRAME_TEST_PASSWORD for the local integration server.")
         }
         let app = XCUIApplication()
+        app.launchArguments = ["--manual-frame-connection"]
         app.launch()
         resetServer(app)
         if app.textFields["serverAddress"].exists {
@@ -84,6 +86,7 @@ final class OpenFotoFrameUITests: XCTestCase {
             throw XCTSkip("Run the OpenFotoFrameIntegration scheme with a fresh fixture server.")
         }
         let app = XCUIApplication()
+        app.launchArguments = ["--manual-frame-connection"]
         app.launch()
         connect(app, server: server, username: "firstlogin", password: "ios-firstlogin-password")
         XCTAssertTrue(app.webViews.buttons["Set Password"].waitForExistence(timeout: 10))
@@ -105,6 +108,36 @@ final class OpenFotoFrameUITests: XCTestCase {
         app.webViews.textFields.firstMatch.typeText("ios-recovery-code")
         app.webViews.buttons["Verify code"].tap()
         XCTAssertTrue(app.navigationBars["Your Photos"].waitForExistence(timeout: 10))
+    }
+
+    func testTailscaleConnectionWithoutSignIn() throws {
+        guard ProcessInfo.processInfo.environment["FRAME_TEST_TAILSCALE"] == "1" else {
+            throw XCTSkip("Run the OpenFotoFrameTailscale scheme while connected to the tailnet.")
+        }
+        let app = XCUIApplication()
+        app.launchArguments = ["-frameServer", "https://frame.tail5e8630.ts.net", "-frameAutoConnectDisabled", "NO"]
+        app.launch()
+        XCTAssertTrue(app.navigationBars["Your Photos"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.tabBars.buttons["Photos"].exists)
+        XCTAssertFalse(app.navigationBars["Sign In"].exists)
+        XCTAssertFalse(app.webViews.firstMatch.exists)
+        // The live check only opens the gallery. No uploads or mutations.
+    }
+
+    func testAutomaticConnectionPreservesRequiredLogin() throws {
+        guard let server = ProcessInfo.processInfo.environment["FRAME_TEST_SERVER"] else {
+            throw XCTSkip("Run the OpenFotoFrameIntegration scheme with the fixture server.")
+        }
+        let app = XCUIApplication()
+        app.launchArguments = ["--manual-frame-connection"]
+        app.launch()
+        resetServer(app)
+        app.terminate()
+        app.launchArguments = ["-frameServer", server, "-frameAutoConnectDisabled", "NO"]
+        app.launch()
+        XCTAssertTrue(app.webViews.buttons["Login"].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.tabBars.buttons["Photos"].exists)
+        XCTAssertFalse(app.alerts["OpenFotoFrame"].exists)
     }
 
     private func connect(_ app: XCUIApplication, server: String, username: String, password: String) {

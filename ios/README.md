@@ -10,10 +10,13 @@ backend migration, new API, or third-party iOS package is required.
 2. Choose the **OpenFotoFrame** scheme and an iPhone/iPad simulator, or select your
    signing team and a physical device. The deployment target is iOS 17. Andrew's
    signing team `BC9NG49J8V` is preserved in both the project and generator spec.
-3. Run and connect. The server address defaults to
-   `https://frame.tail5e8630.ts.net` (the app opens `/upload`). Your iPhone must be
+3. Run. The app connects directly to
+   `https://frame.tail5e8630.ts.net` and opens the native gallery without a sign-in
+   screen when the server permits access. Your iPhone must be
    connected to Tailscale and permitted to reach this server. You can edit the
-   address to connect to another frame.
+   address in Settings → Disconnect This Frame to connect to another frame.
+   An explicit disconnect keeps the connection screen open on subsequent launches.
+   Other servers that require login continue to use the existing web login flow.
 
 Use the same URL you use in a browser, such as `https://frame.example.com` or
 `http://frame.local:5000`. The server must be reachable from the device. Simulator
@@ -162,3 +165,8 @@ Use a dedicated simulator, since UI tests disconnect/reconnect this app. No
 physical TV, Dropbox account, or Apple passkey ceremony is exercised by fixtures;
 test those against the deployment before distribution. The existing backend suite
 remains `pytest` from the repository root.
+
+The **OpenFotoFrameTailscale** scheme includes a read-only UI check of the actual
+Tailscale server. Run only `testTailscaleConnectionWithoutSignIn` to verify that
+launch reaches the native gallery without showing a web sign-in screen. This
+requires Tailscale connectivity and does not upload, edit, or delete server data.

@@ -12,9 +12,11 @@ struct OpenFotoFrameApp: App {
 
 struct RootView: View {
     @EnvironmentObject private var session: FrameSession
+    @State private var starting = true
     var body: some View {
         Group {
             if session.signingOut { ProgressView("Signing out…") }
+            else if starting { ProgressView("Connecting to Frame…") }
             else if session.server == nil { ConnectView() }
             else if !session.authenticated {
                 NavigationStack {
@@ -31,6 +33,23 @@ struct RootView: View {
                     NavigationStack { SettingsView() }
                         .tabItem { Label("Settings", systemImage: "gearshape") }
                 }
+            }
+        }
+        .task {
+            guard starting else { return }
+            defer { starting = false }
+            #if DEBUG
+            // Fixture UI tests explicitly choose a local test server.
+            if ProcessInfo.processInfo.arguments.contains("--manual-frame-connection") { return }
+            #endif
+            guard !UserDefaults.standard.bool(forKey: "frameAutoConnectDisabled") else { return }
+            if session.server == nil,
+               let address = Bundle.main.object(forInfoDictionaryKey: "FrameDefaultServerURL") as? String {
+                do { try session.connect(address) }
+                catch { session.error = error.localizedDescription; return }
+            }
+            if session.server != nil {
+                await session.didAuthenticate(reportAuthenticationError: false)
             }
         }
         .alert("OpenFotoFrame", isPresented: Binding(get: { session.error != nil }, set: { if !$0 { session.error = nil } })) {

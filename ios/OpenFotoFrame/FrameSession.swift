@@ -35,12 +35,14 @@ final class FrameSession: ObservableObject {
         server = value
         redirects.server = value
         UserDefaults.standard.set(value.url.absoluteString, forKey: "frameServer")
+        UserDefaults.standard.set(false, forKey: "frameAutoConnectDisabled")
         error = nil
     }
 
-    func didAuthenticate() async {
+    func didAuthenticate(reportAuthenticationError: Bool = true) async {
         do {
-            // The /upload route is reached only after all required login gates.
+            // A server can authorize access directly (for example over Tailscale),
+            // or through a web session. Use the same CSRF-protected API either way.
             let page = try await send("upload")
             let html = String(decoding: page, as: UTF8.self)
             guard html.contains("name=\"csrf-token\"") else { return }
@@ -50,6 +52,7 @@ final class FrameSession: ObservableObject {
             authenticated = true
             error = nil
         } catch is CancellationError { }
+        catch FrameError.signedOut where !reportAuthenticationError { }
         catch { self.error = error.localizedDescription }
     }
 
@@ -190,6 +193,7 @@ final class FrameSession: ObservableObject {
         gallery = nil
         error = nil
         if forgetServer {
+            UserDefaults.standard.set(true, forKey: "frameAutoConnectDisabled")
             server = nil
             redirects.server = nil
             UserDefaults.standard.removeObject(forKey: "frameServer")

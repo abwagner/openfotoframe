@@ -1,0 +1,13 @@
+# Generate using FRAME_PASSKEY_DOMAIN=frame.example.com xcodegen --spec project-passkeys.yml
+# The signed app and the server AASA file must identify each other. See README.md.
+include: [project.yml]
+targets:
+  OpenFotoFrame:
+    settings:
+      base:
+        FRAME_PASSKEY_DOMAIN: ${FRAME_PASSKEY_DOMAIN}
+    entitlements:
+      path: OpenFotoFrame/Passkeys.entitlements
+      properties:
+        com.apple.developer.associated-domains:
+          - webcredentials:${FRAME_PASSKEY_DOMAIN}

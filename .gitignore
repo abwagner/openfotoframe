@@ -31,3 +31,13 @@ Thumbs.db
 .env
 .env.local
 *.local
+
+# iOS local build and signing state
+ios/DerivedData/
+ios/*.xcresult/
+xcuserdata/
+*.xcuserstate
+*.ipa
+*.p12
+*.mobileprovision
+ios/OpenFotoFrame/Passkeys.entitlements

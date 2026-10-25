@@ -342,6 +342,8 @@ Set your `PI_HOST` secret to the Tailscale IP (e.g., `100.x.x.x`). The GitHub Ac
 
 ## CI/CD Deployment
 
+For the Swagner Server production instance, use the [Tailscale and Forgejo deployment guide](docs/SERVER_DEPLOYMENT.md). It documents private access, tested main-branch deployments, maintenance-window retries, and rollback.
+
 Automated deployment via GitHub Actions. When you push to `main`, tests run and (if enabled) the update is deployed to your Pi.
 
 ### Setup

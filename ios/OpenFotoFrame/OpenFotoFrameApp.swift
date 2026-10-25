@@ -41,7 +41,7 @@ struct RootView: View {
 
 private struct ConnectView: View {
     @EnvironmentObject private var session: FrameSession
-    @State private var address = ""
+    @State private var address = Bundle.main.object(forInfoDictionaryKey: "FrameDefaultServerURL") as? String ?? ""
     var body: some View {
         NavigationStack {
             ScrollView {

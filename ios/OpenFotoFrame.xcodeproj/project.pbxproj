@@ -184,6 +184,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					3370318CEAA901C12CB437A3 = {
+						DevelopmentTeam = BC9NG49J8V;
+					};
 					877BEA4D3E63576B4C498AEB = {
 						TestTargetID = 3370318CEAA901C12CB437A3;
 					};
@@ -377,6 +380,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = BC9NG49J8V;
 				INFOPLIST_FILE = OpenFotoFrame/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -410,6 +414,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = BC9NG49J8V;
 				INFOPLIST_FILE = OpenFotoFrame/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

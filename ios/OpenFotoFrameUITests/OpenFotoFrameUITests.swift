@@ -6,8 +6,10 @@ final class OpenFotoFrameUITests: XCTestCase {
         app.launch()
         resetServer(app)
         let address = app.textFields["serverAddress"]
-        XCTAssertFalse(app.buttons["connectButton"].isEnabled)
+        XCTAssertEqual(address.value as? String, "https://frame.tail5e8630.ts.net")
+        XCTAssertTrue(app.buttons["connectButton"].isEnabled)
         address.tap()
+        clear(address)
         address.typeText("http://example.com")
         app.buttons["connectButton"].tap()
         XCTAssertTrue(app.alerts["OpenFotoFrame"].waitForExistence(timeout: 5))
@@ -28,6 +30,7 @@ final class OpenFotoFrameUITests: XCTestCase {
         if app.textFields["serverAddress"].exists {
             let address = app.textFields["serverAddress"]
             address.tap()
+            clear(address)
             address.typeText(server)
             app.buttons["connectButton"].tap()
         }
@@ -108,6 +111,7 @@ final class OpenFotoFrameUITests: XCTestCase {
         resetServer(app)
         let address = app.textFields["serverAddress"]
         address.tap()
+        clear(address)
         address.typeText(server)
         app.buttons["connectButton"].tap()
         XCTAssertTrue(app.webViews.textFields["Username"].waitForExistence(timeout: 10))
@@ -141,5 +145,10 @@ final class OpenFotoFrameUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    private func clear(_ field: XCUIElement) {
+        let value = field.value as? String ?? ""
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count))
     }
 }

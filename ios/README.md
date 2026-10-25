@@ -8,8 +8,12 @@ backend migration, new API, or third-party iOS package is required.
 
 1. Open `OpenFotoFrame.xcodeproj` in Xcode (16 or newer).
 2. Choose the **OpenFotoFrame** scheme and an iPhone/iPad simulator, or select your
-   signing team and a physical device. The deployment target is iOS 17.
-3. Run, enter the server's root URL, and sign in with an existing account.
+   signing team and a physical device. The deployment target is iOS 17. Andrew's
+   signing team `BC9NG49J8V` is preserved in both the project and generator spec.
+3. Run and connect. The server address defaults to
+   `https://frame.tail5e8630.ts.net` (the app opens `/upload`). Your iPhone must be
+   connected to Tailscale and permitted to reach this server. You can edit the
+   address to connect to another frame.
 
 Use the same URL you use in a browser, such as `https://frame.example.com` or
 `http://frame.local:5000`. The server must be reachable from the device. Simulator

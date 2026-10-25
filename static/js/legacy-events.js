@@ -1,17 +1,18 @@
 (() => {
     const allowed = new Set([
-        'addTvSchedule','applyCrop','autoMatchHeights','cancelCrop','cancelUploadModal',
-        'clearCrop','closeModal','closePreview','configureBackup','deleteGroup','deleteImage',
-        'deleteUser','disconnectBackup','enterCropMode','finishGroupMode','handleCardClick',
-        'moveGroupImage','nextSlide','openGroupPreview','previousSlide','proceedUpload',
-        'refreshPreview','removeTvSchedule','resetPassword','saveBackupSettings',
-        'showResetPassword','startGroupMode','switchSettingsTab','testCec','toggleGalleryView',
-        'toggleImage','toggleMoreColors','togglePause','toggleScheduleDay','toggleSelect',
-        'triggerBackup','triggerRestore','ungroupFromPreview','ungroupGroup','updateGroupField',
-        'updateGroupMatColor','updateGroupScale','updateGroupScalePreview','updateImageField',
+        'addTvSchedule','applyDisplayPreset','saveDisplayProfile','applyCrop','autoMatchHeights','cancelCrop','cancelUploadModal',
+        'clearCrop','closeModal','closePreview','closeSettingsModal','configureBackup',
+        'deleteDisplayProfile','deleteGroup','deleteImage','deleteUser','disconnectBackup','enterCropMode',
+        'finishGroupMode','handleCardClick','moveGroupImage','nextSlide','openGroupPreview',
+        'openSettingsModal','previousSlide','proceedUpload','refreshPreview','removeTvSchedule',
+        'resetPassword','saveBackupSettings','showResetPassword','startGroupMode',
+        'switchSettingsTab','testCec','toggleGalleryView','toggleImage','toggleMoreColors',
+        'toggleFullscreen','togglePause','toggleScheduleDay','toggleSelect','triggerBackup','triggerFileInput','updateCropAspectLock','updateCropAspectRatio','updateCropPreviewZoom',
+        'triggerRestore','ungroupFromPreview','ungroupGroup','updateGroupField',
+        'updateGroupMatColor','updateGroupScale','updateGroupScalePreview','toggleDisplayProfile','updateImageField',
         'updateMatColor','updateScheduleField','updateSingleScale','updateSingleScalePreview',
         'renderSinglePreviewImage','renderSingleControls','renderGroupControls',
-        'previewSingleBevel','previewGroupBevel'
+        'previewSingleBevel','previewGroupBevel','resetAllMatColors','switchTab'
     ]);
     const splitTopLevel = (value, delimiter) => {
         const parts = []; let current = ''; let quote = null; let depth = 0;

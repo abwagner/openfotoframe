@@ -8,21 +8,20 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/display.css') }}">
     <script src="{{ url_for('static', filename='js/legacy-events.js') }}" defer></script>
 </head>
-<body>
+<body data-display-id="{{ request.args.get('display', '') }}">
     <div class="frame-container">
         <div class="image-wrapper" id="image-wrapper">
-            <div class="loading" id="loading">
-                <div class="loading-spinner"></div>
-                Loading photos...
-            </div>
+            <img id="slide-a" class="snapshot-img active" alt="">
+            <img id="slide-b" class="snapshot-img" alt="">
         </div>
     </div>
+    <div id="art-surface" hidden></div>
 
     <div class="controls">
-        <button class="control-btn" data-onclick="previousSlide()">← Prev</button>
-        <button class="control-btn" data-onclick="togglePause()">⏯ Pause</button>
-        <button class="control-btn" data-onclick="nextSlide()">Next →</button>
-        <button class="control-btn" data-onclick="location.reload()">↻ Refresh</button>
+        <button class="control-btn" id="previous-btn" data-onclick="previousSlide()">← Prev</button>
+        <button class="control-btn" id="pause-btn" data-onclick="togglePause()" aria-label="Pause slideshow">⏸ Pause</button>
+        <button class="control-btn" id="next-btn" data-onclick="nextSlide()">Next →</button>
+        <button class="control-btn" id="fullscreen-btn" data-onclick="toggleFullscreen()">⛶ Full</button>
     </div>
     <script src="{{ url_for('static', filename='js/display.js') }}" defer></script>
 </body>

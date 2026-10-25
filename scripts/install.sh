@@ -216,12 +216,12 @@ start_services() {
     # The app creates a random one-time credential in its protected data volume.
     # Consume it locally and delete the plaintext file before showing it once below.
     for _ in {1..60}; do
-        if docker exec pi-photo-frame test -f /app/data/.initial_admin_password 2>/dev/null; then
-            INITIAL_ADMIN_PASSWORD=$(docker exec pi-photo-frame sh -c \
+        if docker exec openfotoframe test -f /app/data/.initial_admin_password 2>/dev/null; then
+            INITIAL_ADMIN_PASSWORD=$(docker exec openfotoframe sh -c \
                 'password=$(cat /app/data/.initial_admin_password) && rm /app/data/.initial_admin_password && printf %s "$password"')
             break
         fi
-        if docker exec pi-photo-frame test -f /app/data/users.json 2>/dev/null; then
+        if docker exec openfotoframe test -f /app/data/users.json 2>/dev/null; then
             break
         fi
         sleep 1

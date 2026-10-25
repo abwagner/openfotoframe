@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/openfotoframe-192.png') }}">
+    <link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='icons/openfotoframe-192.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+    <meta name="theme-color" content="#171513">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Backup Settings - OpenFotoFrame</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/backup.css') }}">
@@ -95,6 +99,11 @@
                 <label>Dropbox Folder</label>
                 <input type="text" id="backup-path" value="PhotoFrameBackup" data-onchange="saveBackupSettings()">
                 <p class="help-text">Files are backed up to this folder in your Dropbox.</p>
+            </div>
+            <div class="setting-group">
+                <label>Max history entries</label>
+                <input type="number" id="max-history" min="1" max="200" value="30" data-onchange="saveBackupSettings()">
+                <p class="help-text">How many backup log entries to keep.</p>
             </div>
         </div>
 

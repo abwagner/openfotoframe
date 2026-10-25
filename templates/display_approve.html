@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/openfotoframe-192.png') }}">
+    <link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='icons/openfotoframe-192.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+    <meta name="theme-color" content="#171513">
+    <title>Approve Display - OpenFotoFrame</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/display_enroll.css') }}">
+</head>
+<body>
+    <main class="enroll-container">
+        {% if error %}
+        <h1>Code Expired</h1>
+        <p>{{ error }}</p>
+        {% else %}
+        <div id="approve-view"
+             data-approve-url="{{ url_for('api_display_approve', code=code) }}"
+             data-csrf="{{ csrf_token() }}"
+             data-remaining="{{ remaining }}">
+            <h1>Approve Display</h1>
+            <p>A photo frame display is requesting access. Approving will allow it to show your photos.</p>
+            <button type="button" class="approve-btn" id="approve-btn">Approve this display</button>
+            <p class="countdown-row">Code expires in <strong><span id="countdown">{{ remaining }}</span>s</strong></p>
+        </div>
+        <div id="success-view" style="display:none;">
+            <div class="success-icon">✓</div>
+            <h1>Display approved</h1>
+            <p>The photo frame will load automatically. You can close this tab.</p>
+        </div>
+        <script src="{{ url_for('static', filename='js/display_approve.js') }}" defer></script>
+        {% endif %}
+    </main>
+</body>
+</html>

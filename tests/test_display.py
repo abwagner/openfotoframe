@@ -65,6 +65,55 @@ class TestDisplayPage:
         assert resp.status_code == 200
 
 
+class TestAutoPortraitPairing:
+    def test_pair_normalizes_effective_scales_without_mutating_images(self):
+        first = {
+            'type': 'single',
+            'images': [{'filename': 'first.jpg', 'width': 100, 'height': 200, 'scale': 0.6}],
+        }
+        second = {
+            'type': 'single',
+            'images': [{'filename': 'second.jpg', 'width': 100, 'height': 300, 'scale': 1.8}],
+        }
+
+        paired = photo_app._auto_pair_portraits([first, second])
+
+        assert len(paired) == 1
+        assert paired[0]['type'] == 'group'
+        assert [img['scale'] for img in paired[0]['images']] == [1.0, 1.0]
+        assert first['images'][0]['scale'] == 0.6
+        assert second['images'][0]['scale'] == 1.8
+
+    def test_pair_snapshots_refresh_for_each_active_display_profile(self, app, tmp_path, monkeypatch):
+        snapshot_folder = tmp_path / 'display_snapshots'
+        monkeypatch.setattr(photo_app, 'SNAPSHOT_FOLDER', snapshot_folder)
+        monkeypatch.setattr(photo_app, 'load_settings', lambda: {
+            'displays': [
+                {'id': 'default', 'active': True, 'width': 1920, 'height': 1080},
+                {'id': 'portrait', 'active': True, 'width': 1080, 'height': 1920},
+                {'id': 'disabled', 'active': False, 'width': 1920, 'height': 1080},
+            ],
+        })
+        rendered_profiles = []
+        slide = {'type': 'group', 'group_id': '__pair_profiles', 'images': []}
+
+        def fake_pair_renderer(slide_data, settings, upload_folder, output_folder):
+            rendered_profiles.append(settings['_display_id'])
+            output_folder.mkdir(parents=True, exist_ok=True)
+            path = output_folder / f"{slide_data['group_id']}.{settings['_display_id']}.display.png"
+            path.write_bytes(b'PNG')
+            return path
+
+        monkeypatch.setattr(photo_app, '_render_pair_slide_snapshot', fake_pair_renderer)
+
+        photo_app._ensure_auto_pair_snapshots([slide], force=True)
+
+        assert rendered_profiles == ['default', 'portrait']
+        assert (snapshot_folder / '__pair_profiles.default.display.png').exists()
+        assert (snapshot_folder / '__pair_profiles.portrait.display.png').exists()
+        assert not (snapshot_folder / '__pair_profiles.disabled.display.png').exists()
+
+
 class TestDisplayEnrollment:
     """Tests for POST-only display enrollment and session rotation."""
 
@@ -461,3 +510,30 @@ class TestDisplayControl:
         data = resp.get_json()
         assert data['index'] == 0
         assert data['total'] == 0
+
+    def test_state_renders_synthetic_portrait_pair(self, app, tmp_path, monkeypatch):
+        """Profile snapshots must use the synthetic pair renderer."""
+        snapshot_folder = tmp_path / 'display_snapshots'
+        monkeypatch.setattr(photo_app, 'SNAPSHOT_FOLDER', snapshot_folder)
+        profile = {'id': 'default', 'width': 1920, 'height': 1080}
+        slide = {
+            'type': 'group',
+            'group_id': '__pair_test',
+            'images': [
+                {'filename': 'one.jpg'},
+                {'filename': 'two.jpg'},
+            ],
+        }
+
+        def fake_pair_renderer(slide_data, settings, upload_folder, output_folder):
+            output_folder.mkdir(parents=True, exist_ok=True)
+            path = output_folder / '__pair_test.default.display.png'
+            path.write_bytes(b'PNG')
+            return path
+
+        monkeypatch.setattr(photo_app, '_render_pair_slide_snapshot', fake_pair_renderer)
+        monkeypatch.setattr(photo_app, '_render_group_snapshot', lambda *args: None)
+
+        url = photo_app._profile_snapshot_url(slide, profile)
+
+        assert url.startswith('/snapshots/__pair_test.default.display.png?v=')

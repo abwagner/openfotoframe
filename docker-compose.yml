@@ -3,7 +3,7 @@ services:
     build: .
     # Or use pre-built image (if you publish one):
     # image: your-registry/openfotoframe:latest
-    container_name: pi-photo-frame
+    container_name: openfotoframe
     restart: unless-stopped
     volumes:
       # Persist uploaded photos
@@ -37,7 +37,7 @@ services:
 
   caddy:
     build: ./caddy
-    container_name: pi-photo-frame-caddy
+    container_name: openfotoframe-caddy
     restart: unless-stopped
     ports:
       - "80:80"

@@ -3,18 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/openfotoframe-192.png') }}">
+    <link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='icons/openfotoframe-192.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+    <meta name="theme-color" content="#171513">
     <title>Enroll Display</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/display_enroll.css') }}">
     <script src="{{ url_for('static', filename='js/legacy-events.js') }}" defer></script>
 </head>
 <body>
-    <main>
+    <main class="enroll-container">
         <h1>Enroll this display</h1>
-        <p>Enter the display enrollment secret once. It will be exchanged for a protected browser session and will not be added to the URL.</p>
-        <form method="post" action="{{ url_for('api_display_enroll') }}">
-            <label for="enrollment-secret">Enrollment secret</label>
-            <input id="enrollment-secret" name="enrollment_secret" type="password" autocomplete="off" required>
-            <button type="submit">Enroll display</button>
-        </form>
+        <div id="qr-container" class="qr-placeholder">
+            <span>Loading&hellip;</span>
+        </div>
+        <p id="status-message">Scan the QR code with your phone to approve this display.</p>
+        <p class="countdown-row">Expires in <strong><span id="countdown">5:00</span></strong></p>
+        <details class="manual-fallback">
+            <summary>Enter secret manually instead</summary>
+            <form method="post" action="{{ url_for('api_display_enroll') }}">
+                <label for="enrollment-secret">Enrollment secret</label>
+                <input id="enrollment-secret" name="enrollment_secret" type="password" autocomplete="off" required>
+                <button type="submit">Enroll</button>
+            </form>
+        </details>
     </main>
+    <script src="{{ url_for('static', filename='js/display_enroll.js') }}" defer></script>
 </body>
 </html>

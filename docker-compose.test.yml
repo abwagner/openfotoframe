@@ -1,0 +1,39 @@
+# Separate server test instance. Requires the existing proxy/SSO stack.
+# Run from this repository: docker compose -p openfotoframe-test -f docker-compose.test.yml up -d
+services:
+  photo-frame-test:
+    image: openfotoframe-test:0a08763
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openfotoframe-test
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-America/New_York}
+      BEHIND_PROXY: "1"
+      SECURE_COOKIES: "1"
+      AUTHELIA_URL: https://auth.swagner.tech
+      AUTHELIA_USER_MAP: andrew=admin,allison=allison
+      AUTHELIA_ADMIN_GROUPS: admins
+    volumes:
+      - test_uploads:/app/uploads
+      - test_data:/app/data
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.photoframe-test.rule=Host(`frame-dev.swagner.tech`)
+      - traefik.http.routers.photoframe-test.entrypoints=websecure
+      - traefik.http.routers.photoframe-test.tls.certresolver=letsencrypt
+      - traefik.http.routers.photoframe-test.middlewares=crowdsec@docker,authelia@docker
+      - traefik.http.services.photoframe-test.loadbalancer.server.port=5000
+networks:
+  proxy:
+    external: true
+    name: proxy
+volumes:
+  test_uploads:
+    name: photoframe_test_uploads
+  test_data:
+    name: photoframe_test_data

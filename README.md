@@ -2,6 +2,13 @@
 
 A beautiful, web-based digital photo frame with user management, gallery controls, and HTTPS support. Runs on any Linux system — commonly deployed on a Raspberry Pi connected to a TV.
 
+## iPhone and iPad app
+
+The [iOS companion app](ios/README.md) combines a native SwiftUI gallery, photo
+uploads, appearance settings, and slideshow remote with the existing web editors
+for cropping, groups, TV schedules, backups, user administration, and MFA. Open
+`ios/OpenFotoFrame.xcodeproj` in Xcode and connect it to your existing server.
+
 ## Features
 
 The proposed multi-display allocator and aspect-aware rendering architecture is

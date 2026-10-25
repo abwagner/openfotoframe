@@ -17,13 +17,14 @@ def main():
     source = Path(__file__).resolve().parents[2]
     with tempfile.TemporaryDirectory(prefix="openfotoframe-ios-test-") as directory:
         target = Path(directory)
-        for filename in ("app.py", "render_display.py"):
+        for filename in ("app.py", "render_display.py", "artwork_catalog.py"):
             shutil.copy2(source / filename, target / filename)
         for folder in ("static", "templates"):
             shutil.copytree(source / folder, target / folder)
         sys.path.insert(0, str(target))
         spec = importlib.util.spec_from_file_location("ios_frame_fixture", target / "app.py")
         module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
         spec.loader.exec_module(module)
         module.load_users()
         module.change_user_password("admin", "ios-integration-password")

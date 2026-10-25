@@ -57,9 +57,12 @@ git -C "$repo_dir" archive "$revision" | tar -x -C "$release_dir"
 image="openfotoframe-cd:$revision"
 docker build --label "org.opencontainers.image.revision=$revision" -t "$image" "$release_dir"
 # Tests run inside an ephemeral container without production volumes or networks.
+test_mounts=(-v "$release_dir/tests:/app/tests:ro" -v "$release_dir/scripts:/app/scripts:ro")
+if [[ -d "$release_dir/ios/scripts" ]]; then
+    test_mounts+=(-v "$release_dir/ios/scripts:/app/ios/scripts:ro")
+fi
 docker run --rm --network none \
-    -v "$release_dir/tests:/app/tests:ro" \
-    -v "$release_dir/scripts:/app/scripts:ro" \
+    "${test_mounts[@]}" \
     "$image" python -m pytest -q -p no:cacheprovider /app/tests
 # Discard a build if another merge arrived while it was running.
 git -C "$repo_dir" fetch --no-write-fetch-head --no-tags origin "refs/heads/$branch:refs/openfotoframe-cd/$branch"

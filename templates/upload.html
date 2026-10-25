@@ -3,54 +3,243 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/openfotoframe-192.png') }}">
+    <link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='icons/openfotoframe-192.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+    <meta name="theme-color" content="#171513">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>OpenFotoFrame</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/upload.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/art-editor.css') }}">
     <script src="{{ url_for('static', filename='js/legacy-events.js') }}" defer></script>
 </head>
 <body data-load-network-info="{{ 'true' if is_admin and password_changed else 'false' }}">
     <div class="container">
         <header>
             <div class="header-top">
-                {% if is_admin %}
-                <a href="/backup" class="header-link">Backup</a>
-                {% endif %}
-                <a href="/change-password" class="header-link">Password</a>
+                <a href="/upload" class="header-link active">Photos</a>
+                {% if is_admin %}<a href="/admin" class="header-link">Admin</a>{% endif %}
                 <a href="/mfa" class="header-link">MFA</a>
-                {% if is_admin %}
-                <a href="/admin/users" class="header-link">Users</a>
-                {% endif %}
+                <a href="/change-password" class="header-link">Password</a>
                 <a href="/logout" class="header-link">Logout</a>
             </div>
-            <h1>🖼️ OpenFotoFrame</h1>
-            <p class="subtitle">Logged in as {{ username }}</p>
-            <a href="/display" class="display-link" target="_blank">Open TV Display →</a>
+            <div class="header-actions">
+                <button class="btn btn-settings" data-onclick="openSettingsModal()">⚙ Settings</button>
+                <a href="/display" class="display-link" target="_blank">Open TV Display →</a>
+            </div>
         </header>
 
-        <!-- Preview Section -->
-        <div class="preview-section" id="preview-section">
-            <div class="mat-preview" id="mat-preview">
-                <div id="preview-content"></div>
-                <button class="preview-close-btn" data-onclick="closePreview()" title="Close">&times;</button>
-            </div>
-            <div class="preview-controls" id="preview-controls">
-                <div class="preview-controls-header">
-                    <h3 id="preview-controls-title">Group Controls</h3>
-                    <div class="preview-controls-actions">
-                        <button class="btn btn-refresh" data-onclick="autoMatchHeights()">Match Heights</button>
-                        <button class="btn btn-refresh" data-onclick="refreshPreview()">Refresh Preview</button>
-                        <button class="btn btn-ungroup" id="preview-ungroup-btn" data-onclick="ungroupFromPreview()" style="display:none;">Ungroup</button>
+        <!-- Settings Modal -->
+        <div class="settings-modal-overlay" id="settings-modal-overlay">
+            <div class="settings-modal-box">
+                <div class="settings-modal-header">
+                    <span>⚙ Settings</span>
+                    <button class="settings-modal-close" data-onclick="closeSettingsModal()">×</button>
+                </div>
+                <div class="settings-modal-body">
+                    <!-- Tab bar -->
+                    <div class="settings-tabs">
+                        <button class="settings-tab active" data-tab="mat" data-onclick="switchSettingsTab('mat')">Mat</button>
+                        <button class="settings-tab" data-tab="settings" data-onclick="switchSettingsTab('settings')">Settings</button>
+                        <button class="settings-tab" data-tab="displays" data-onclick="switchSettingsTab('displays')">Displays</button>
+                    </div>
+
+                    <!-- Mat Tab -->
+                    <div class="settings-tab-content" id="tab-mat">
+                        <div class="panel">
+                            <h2 class="collapsible-header open" data-onclick="this.classList.toggle('open'); this.nextElementSibling.style.display = this.classList.contains('open') ? '' : 'none';">Default Mat Settings <span class="collapse-arrow">▶</span></h2>
+                            <div class="collapsible-body">
+
+                            <div class="setting-group">
+                                <label>Default Mat Color</label>
+                                <input type="hidden" id="mat-color" value="{{ settings.mat_color }}">
+                                <div class="color-presets" id="default-color-presets"></div>
+                                <button type="button" class="btn-more-colors" id="toggle-more-colors" data-onclick="toggleMoreColors()">More Colors</button>
+                                <div class="color-presets accent-colors" id="accent-color-presets" style="display:none;"></div>
+                            </div>
+
+                            <div class="toggle-group">
+                                <label>Auto-select mat color</label>
+                                <label class="toggle">
+                                    <input type="checkbox" id="auto-mat-color" {% if settings.auto_mat_color %}checked{% endif %}>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <p style="font-size: 0.75rem; color: #666; margin-top: -10px; margin-bottom: 6px;">When off, new uploads use the default mat color above.</p>
+                            <button type="button" class="btn-reset-mat" id="reset-mat-colors" data-onclick="resetAllMatColors()">Reset all to default</button>
+
+                            <div class="setting-group">
+                                <label>Mat Finish</label>
+                                <select id="mat-finish">
+                                    <option value="flat" {% if settings.mat_finish == 'flat' %}selected{% endif %}>Flat</option>
+                                    <option value="eggshell" {% if settings.mat_finish == 'eggshell' %}selected{% endif %}>Eggshell</option>
+                                    <option value="linen" {% if settings.mat_finish == 'linen' %}selected{% endif %}>Linen</option>
+                                    <option value="suede" {% if settings.mat_finish == 'suede' %}selected{% endif %}>Suede</option>
+                                    <option value="silk" {% if settings.mat_finish == 'silk' %}selected{% endif %}>Silk</option>
+                                </select>
+                            </div>
+
+                            <div class="setting-group">
+                                <label>Border Effect</label>
+                                <select id="border-effect">
+                                    <option value="bevel" {% if settings.border_effect == 'bevel' %}selected{% endif %}>Bevel (classic)</option>
+                                    <option value="bevel-lit" {% if settings.border_effect == 'bevel-lit' %}selected{% endif %}>Bevel (lit)</option>
+                                    <option value="shadow" {% if settings.border_effect == 'shadow' %}selected{% endif %}>Shadow</option>
+                                </select>
+                            </div>
+
+                            <div class="setting-group">
+                                <label><span id="effect-size-label">{{ 'Shadow' if settings.border_effect == 'shadow' else 'Bevel' }}</span> Size <span id="bevel-value">{{ settings.bevel_width }}px</span></label>
+                                <input type="range" id="bevel-width" min="0" max="16" value="{{ settings.bevel_width }}" step="1">
+                            </div>
+
+                            <div id="bevel-lit-controls" style="{{ 'display:none' if settings.border_effect != 'bevel-lit' else '' }}">
+                                <div class="setting-group">
+                                    <label>Brightness <span id="bevel-lit-intensity-value">{{ settings.bevel_lit_intensity }}%</span></label>
+                                    <input type="range" id="bevel-lit-intensity" min="0" max="100" value="{{ settings.bevel_lit_intensity }}" step="1">
+                                </div>
+                                <div class="setting-group">
+                                    <label style="margin-bottom:8px;display:block;">Light Direction</label>
+                                    <div id="light-picker" style="width:88px;height:88px;border-radius:50%;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.25);position:relative;cursor:crosshair;user-select:none;">
+                                        <!-- crosshair lines -->
+                                        <div style="position:absolute;top:50%;left:8px;right:8px;height:1px;background:rgba(255,255,255,0.08);transform:translateY(-50%);pointer-events:none;"></div>
+                                        <div style="position:absolute;left:50%;top:8px;bottom:8px;width:1px;background:rgba(255,255,255,0.08);transform:translateX(-50%);pointer-events:none;"></div>
+                                        <!-- corner labels -->
+                                        <span style="position:absolute;top:4px;left:50%;transform:translateX(-50%);font-size:9px;color:#555;pointer-events:none;">T</span>
+                                        <span style="position:absolute;bottom:4px;left:50%;transform:translateX(-50%);font-size:9px;color:#555;pointer-events:none;">B</span>
+                                        <span style="position:absolute;left:5px;top:50%;transform:translateY(-50%);font-size:9px;color:#555;pointer-events:none;">L</span>
+                                        <span style="position:absolute;right:5px;top:50%;transform:translateY(-50%);font-size:9px;color:#555;pointer-events:none;">R</span>
+                                        <!-- draggable dot -->
+                                        <div id="light-handle" style="width:14px;height:14px;border-radius:50%;background:#ffe066;box-shadow:0 0 6px 3px rgba(255,220,80,0.55);position:absolute;transform:translate(-50%,-50%);pointer-events:none;"></div>
+                                    </div>
+                                </div>
+                                <!-- hidden inputs consumed by getLitSliderValues() -->
+                                <input type="hidden" id="bevel-lit-v" value="{{ settings.bevel_lit_v }}">
+                                <input type="hidden" id="bevel-lit-h" value="{{ settings.bevel_lit_h }}">
+                            </div>
+
+                            <button class="btn btn-apply" id="apply-mat-settings">Apply</button>
+
+                            <p style="font-size: 0.75rem; color: #666; margin-top: 8px;">
+                                Select an image to customize individually.
+                            </p>
+                            </div><!-- /collapsible-body -->
+                        </div>
+                    </div>
+
+                    <div class="settings-tab-content" id="tab-displays" style="display:none;"><div class="panel"><h2>Display Profiles</h2><p style="font-size:.8rem;color:#aaa">Choose a standard target or enter any custom pixel dimensions.</p><div id="display-profiles-list"></div><div id="display-content-editor" class="art-editor" hidden></div><div class="setting-group"><label>New display name <input id="new-display-name" value="New display"></label><label>Standard display <select id="display-preset" data-onchange="applyDisplayPreset(this.value)"><option value="">Custom</option><option value="1920x1080">1080p — 1920×1080</option><option value="2560x1440">1440p — 2560×1440</option><option value="3840x2160">4K UHD — 3840×2160</option><option value="7680x4320">8K UHD — 7680×4320</option><option value="1080x1920">1080p Portrait — 1080×1920</option><option value="2160x3840">4K Portrait — 2160×3840</option></select></label><label>Width <input id="new-display-width" type="number" value="1920"></label><label>Height <input id="new-display-height" type="number" value="1080"></label><label><input id="new-display-sync" type="checkbox" checked> Synchronize slideshow</label><button class="btn btn-apply" data-onclick="createDisplayProfile()">Add display</button></div></div></div>
+                    <!-- Settings Tab -->
+                    <div class="settings-tab-content" id="tab-settings" style="display:none;">
+                        <!-- Slideshow Settings -->
+                        <div class="panel">
+                            <h2 class="collapsible-header open" data-onclick="this.classList.toggle('open'); this.nextElementSibling.style.display = this.classList.contains('open') ? '' : 'none';">Slideshow <span class="collapse-arrow">▶</span></h2>
+                            <div class="collapsible-body">
+
+                            <div class="setting-group">
+                                <label>Slideshow Interval (seconds)</label>
+                                <input type="number" id="slideshow-interval" min="3" max="300" value="{{ settings.slideshow_interval }}">
+                            </div>
+
+                            <div class="setting-group">
+                                <label>Transition Duration (seconds)</label>
+                                <input type="number" id="transition-duration" min="0" max="5" step="0.5" value="{{ settings.transition_duration }}">
+                            </div>
+
+                            <div class="setting-group">
+                                <label>Image Fit</label>
+                                <select id="fit-mode">
+                                    <option value="contain" {% if settings.fit_mode == 'contain' %}selected{% endif %}>Contain (show full image)</option>
+                                    <option value="cover" {% if settings.fit_mode == 'cover' %}selected{% endif %}>Cover (fill screen, may crop)</option>
+                                </select>
+                            </div>
+
+                            <div class="toggle-group">
+                                <label>Shuffle Order</label>
+                                <label class="toggle">
+                                    <input type="checkbox" id="shuffle" {% if settings.shuffle %}checked{% endif %}>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="setting-group">
+                                <label>Target Screen Ratio</label>
+                                <select id="target-aspect-ratio">
+                                    <option value="16:9" {% if settings.target_aspect_ratio == '16:9' %}selected{% endif %}>16:9 (4K TV)</option>
+                                    <option value="21:9" {% if settings.target_aspect_ratio == '21:9' %}selected{% endif %}>21:9 (Ultrawide)</option>
+                                    <option value="4:3" {% if settings.target_aspect_ratio == '4:3' %}selected{% endif %}>4:3 (Standard)</option>
+                                    <option value="1:1" {% if settings.target_aspect_ratio == '1:1' %}selected{% endif %}>1:1 (Square)</option>
+                                </select>
+                            </div>
+
+                            <button class="btn btn-apply" id="apply-slideshow-settings">Apply</button>
+                            </div><!-- /collapsible-body -->
+                        </div>
+
+                        <!-- TV Schedule Settings -->
+                        <div class="panel" id="tv-schedule-panel">
+                            <h2>TV Power Schedule</h2>
+
+                            <div id="cec-unavailable-msg" class="cec-unavailable" style="display:none;">
+                                CEC control is not available. Ensure the HDMI-CEC device
+                                (/dev/cec0) is accessible in Docker.
+                            </div>
+
+                            <div id="cec-controls" style="display:none;">
+                                <div class="tv-schedule-list" id="tv-schedule-list"></div>
+
+                                <div style="margin-top: 12px; display: flex; gap: 8px;">
+                                    <button class="btn btn-refresh" data-onclick="addTvSchedule()" style="flex:1;">+ Add Schedule</button>
+                                    <button class="btn btn-refresh" data-onclick="testCec('on')" title="Turn TV on now">Test On</button>
+                                    <button class="btn btn-refresh" data-onclick="testCec('standby')" title="Turn TV off now">Test Off</button>
+                                </div>
+
+                                <p style="font-size: 0.75rem; color: #666; text-align: center; margin-top: 10px;">
+                                    Schedules are saved automatically.
+                                </p>
+                            </div>
+                        </div>
+
+                        {% if is_admin and password_changed %}
+                        <!-- Network Info -->
+                        <div class="panel" id="network-info-panel">
+                            <h2>Network</h2>
+                            <div id="network-info-content" style="font-size: 0.85rem; color: #aaa;">
+                                Loading...
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
-                <div id="preview-controls-body"></div>
             </div>
         </div>
 
-        <!-- Gallery Section (below preview, above panels) -->
+        <!-- Preview Section -->
+        <div class="preview-section" id="preview-section">
+            <div class="preview-modal-box">
+                <div class="mat-preview" id="mat-preview">
+                    <div id="preview-content"></div>
+                    <button class="preview-close-btn" data-onclick="closePreview()" title="Close">&times;</button>
+                </div>
+                <div class="preview-controls" id="preview-controls">
+                    <div class="preview-controls-header">
+                        <h3 id="preview-controls-title">Group Controls</h3>
+                        <div class="preview-controls-actions">
+                            <button class="btn btn-refresh" data-onclick="autoMatchHeights()">Match Heights</button>
+                            <button class="btn btn-refresh" data-onclick="refreshPreview()">Refresh Preview</button>
+                            <button class="btn btn-ungroup" id="preview-ungroup-btn" data-onclick="ungroupFromPreview()" style="display:none;">Ungroup</button>
+                        </div>
+                    </div>
+                    <div id="preview-controls-body"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gallery Section -->
         <div class="main-gallery-section">
             <!-- Toolbar -->
             <div class="toolbar">
                 <div class="toolbar-left">
+                    <button class="btn btn-upload" data-onclick="triggerFileInput()">📤 Upload</button>
                     <button class="btn btn-group" id="start-group" data-onclick="startGroupMode()">📐 Group</button>
                     <button class="btn btn-warning" id="done-group" data-onclick="finishGroupMode()" style="display:none;">Done</button>
                     <span class="selection-count" id="selection-count-wrapper" style="display:none;"><span id="selected-count">0</span> selected</span>
@@ -68,6 +257,13 @@
                 </div>
             </div>
 
+            <!-- Stats Bar -->
+            <div class="stats-bar">
+                <div class="stat"><span>Total:</span><span class="stat-value" id="total-count">0</span></div>
+                <div class="stat"><span>Visible:</span><span class="stat-value" id="enabled-count">0</span></div>
+                <div class="stat"><span>Hidden:</span><span class="stat-value" id="disabled-count">0</span></div>
+            </div>
+
             <!-- Gallery Grid -->
             <div class="gallery-grid" id="gallery-grid"></div>
 
@@ -80,176 +276,19 @@
             </div>
         </div>
 
-        <div class="panels">
-            <!-- Upload Section -->
-            <div class="panel main-upload-section">
-                <div id="status" class="status"></div>
+        <div id="status" class="status"></div>
 
-                <div class="upload-zone" id="upload-zone">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <p>Drag & drop images here or click to browse</p>
-                    <p style="font-size: 0.8rem; margin-top: 8px;">Supports: JPG, PNG, GIF, WebP</p>
-                </div>
-                <input type="file" id="file-input" multiple accept="image/*">
-
-                <!-- Stats -->
-                <div class="stats-bar">
-                    <div class="stat">
-                        <span>Total:</span>
-                        <span class="stat-value" id="total-count">0</span>
-                    </div>
-                    <div class="stat">
-                        <span>Visible:</span>
-                        <span class="stat-value" id="enabled-count">0</span>
-                    </div>
-                    <div class="stat">
-                        <span>Hidden:</span>
-                        <span class="stat-value" id="disabled-count">0</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Settings Sidebar -->
-            <div class="settings-column">
-                <!-- Tab bar -->
-                <div class="settings-tabs">
-                    <button class="settings-tab active" data-tab="mat" data-onclick="switchSettingsTab('mat')">Mat</button>
-                    <button class="settings-tab" data-tab="settings" data-onclick="switchSettingsTab('settings')">Settings</button>
-                </div>
-
-                <!-- Mat Tab -->
-                <div class="settings-tab-content" id="tab-mat">
-                    <div class="panel">
-                        <h2 class="collapsible-header" data-onclick="this.classList.toggle('open'); this.nextElementSibling.style.display = this.classList.contains('open') ? '' : 'none';">Default Mat Settings <span class="collapse-arrow">▶</span></h2>
-                        <div class="collapsible-body" style="display:none;">
-
-                        <div class="setting-group">
-                            <label>Default Mat Color</label>
-                            <input type="hidden" id="mat-color" value="{{ settings.mat_color }}">
-                            <div class="color-presets" id="default-color-presets"></div>
-                            <button type="button" class="btn-more-colors" id="toggle-more-colors" data-onclick="toggleMoreColors()">More Colors</button>
-                            <div class="color-presets accent-colors" id="accent-color-presets" style="display:none;"></div>
-                        </div>
-
-                        <div class="setting-group">
-                            <label>Mat Finish</label>
-                            <select id="mat-finish">
-                                <option value="flat" {% if settings.mat_finish == 'flat' %}selected{% endif %}>Flat</option>
-                                <option value="eggshell" {% if settings.mat_finish == 'eggshell' %}selected{% endif %}>Eggshell</option>
-                                <option value="linen" {% if settings.mat_finish == 'linen' %}selected{% endif %}>Linen</option>
-                                <option value="suede" {% if settings.mat_finish == 'suede' %}selected{% endif %}>Suede</option>
-                                <option value="silk" {% if settings.mat_finish == 'silk' %}selected{% endif %}>Silk</option>
-                            </select>
-                        </div>
-
-                        <div class="setting-group">
-                            <label>Border Effect</label>
-                            <select id="border-effect">
-                                <option value="bevel" {% if settings.border_effect == 'bevel' %}selected{% endif %}>Bevel</option>
-                                <option value="shadow" {% if settings.border_effect == 'shadow' %}selected{% endif %}>Shadow</option>
-                            </select>
-                        </div>
-
-                        <div class="setting-group">
-                            <label><span id="effect-size-label">{{ 'Shadow' if settings.border_effect == 'shadow' else 'Bevel' }}</span> Size <span id="bevel-value">{{ settings.bevel_width }}px</span></label>
-                            <input type="range" id="bevel-width" min="0" max="16" value="{{ settings.bevel_width }}" step="1">
-                        </div>
-
-                        <button class="btn btn-apply" id="apply-mat-settings">Apply</button>
-
-                        <p style="font-size: 0.75rem; color: #666; margin-top: 8px;">
-                            Select an image to customize individually.
-                        </p>
-                        </div><!-- /collapsible-body -->
-                    </div>
-                </div>
-
-                <!-- Settings Tab -->
-                <div class="settings-tab-content" id="tab-settings" style="display:none;">
-                    <!-- Slideshow Settings -->
-                    <div class="panel">
-                        <h2 class="collapsible-header" data-onclick="this.classList.toggle('open'); this.nextElementSibling.style.display = this.classList.contains('open') ? '' : 'none';">Slideshow <span class="collapse-arrow">▶</span></h2>
-                        <div class="collapsible-body" style="display:none;">
-
-                        <div class="setting-group">
-                            <label>Slideshow Interval (seconds)</label>
-                            <input type="number" id="slideshow-interval" min="3" max="300" value="{{ settings.slideshow_interval }}">
-                        </div>
-
-                        <div class="setting-group">
-                            <label>Transition Duration (seconds)</label>
-                            <input type="number" id="transition-duration" min="0" max="5" step="0.5" value="{{ settings.transition_duration }}">
-                        </div>
-
-                        <div class="setting-group">
-                            <label>Image Fit</label>
-                            <select id="fit-mode">
-                                <option value="contain" {% if settings.fit_mode == 'contain' %}selected{% endif %}>Contain (show full image)</option>
-                                <option value="cover" {% if settings.fit_mode == 'cover' %}selected{% endif %}>Cover (fill screen, may crop)</option>
-                            </select>
-                        </div>
-
-                        <div class="toggle-group">
-                            <label>Shuffle Order</label>
-                            <label class="toggle">
-                                <input type="checkbox" id="shuffle" {% if settings.shuffle %}checked{% endif %}>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-
-                        <div class="setting-group">
-                            <label>Target Screen Ratio</label>
-                            <select id="target-aspect-ratio">
-                                <option value="16:9" {% if settings.target_aspect_ratio == '16:9' %}selected{% endif %}>16:9 (4K TV)</option>
-                                <option value="21:9" {% if settings.target_aspect_ratio == '21:9' %}selected{% endif %}>21:9 (Ultrawide)</option>
-                                <option value="4:3" {% if settings.target_aspect_ratio == '4:3' %}selected{% endif %}>4:3 (Standard)</option>
-                                <option value="1:1" {% if settings.target_aspect_ratio == '1:1' %}selected{% endif %}>1:1 (Square)</option>
-                            </select>
-                        </div>
-
-                        <button class="btn btn-apply" id="apply-slideshow-settings">Apply</button>
-                        </div><!-- /collapsible-body -->
-                    </div>
-
-                    <!-- TV Schedule Settings -->
-                    <div class="panel" id="tv-schedule-panel">
-                        <h2>TV Power Schedule</h2>
-
-                        <div id="cec-unavailable-msg" class="cec-unavailable" style="display:none;">
-                            CEC control is not available. Ensure the HDMI-CEC device
-                            (/dev/cec0) is accessible in Docker.
-                        </div>
-
-                        <div id="cec-controls" style="display:none;">
-                            <div class="tv-schedule-list" id="tv-schedule-list"></div>
-
-                            <div style="margin-top: 12px; display: flex; gap: 8px;">
-                                <button class="btn btn-refresh" data-onclick="addTvSchedule()" style="flex:1;">+ Add Schedule</button>
-                                <button class="btn btn-refresh" data-onclick="testCec('on')" title="Turn TV on now">Test On</button>
-                                <button class="btn btn-refresh" data-onclick="testCec('standby')" title="Turn TV off now">Test Off</button>
-                            </div>
-
-                            <p style="font-size: 0.75rem; color: #666; text-align: center; margin-top: 10px;">
-                                Schedules are saved automatically.
-                            </p>
-                        </div>
-                    </div>
-
-                    {% if is_admin and password_changed %}
-                    <!-- Network Info -->
-                    <div class="panel" id="network-info-panel">
-                        <h2>Network</h2>
-                        <div id="network-info-content" style="font-size: 0.85rem; color: #aaa;">
-                            Loading...
-                        </div>
-                    </div>
-                    {% endif %}
-                </div>
+        <!-- Page Drag Overlay -->
+        <div class="page-drag-overlay" id="page-drag-overlay">
+            <div class="drag-overlay-inner">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <p>Drop photos to upload</p>
             </div>
         </div>
     </div>
+    <input type="file" id="file-input" multiple accept="image/*">
     <script src="{{ url_for('static', filename='js/upload.js') }}" defer></script>
 
     <!-- Upload Warning Modal -->

@@ -1,0 +1,19 @@
+.art-editor { padding: 18px; margin: 18px 0; border: 1px solid #655645; border-radius: 10px; background: #211e1a; }
+.art-editor-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
+.art-field { display: flex; flex-direction: column; gap: 6px; margin: 14px 0; color: #e8dfd5; }
+.art-field input, .art-field select, .art-custom-row input { padding: 8px; border: 1px solid #655645; border-radius: 5px; background: #302b25; color: #fff; min-width: 0; }
+.art-field input[type=color], .art-custom-row input[type=color] { width: 48px; height: 38px; padding: 3px; flex-shrink: 0; }
+.art-preview { width: 100%; aspect-ratio: 16/9; background: #171411; overflow: hidden; border-radius: 8px; margin: 14px 0; touch-action: none; }
+.art-help { font-size: .85rem; color: #c6bcae; margin: 10px 0; }
+.art-settings h4 { margin: 18px 0 10px; }
+.art-colorways { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.art-colorway { padding: 5px; background: #302b25; color: #e8dfd5; border: 2px solid transparent; border-radius: 6px; cursor: pointer; font: inherit; font-size: .8rem; }
+.art-colorway[aria-pressed=true] { border-color: #d8c3a5; }
+.art-palette-strip { display: flex; gap: 3px; padding: 4px; height: 36px; margin-bottom: 5px; }
+.art-palette-strip span { flex: 1; }
+.art-color-control { display: flex; gap: 8px; }
+.art-grout-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.art-grout-swatches button { border: 1px solid #aaa; font-size: .75rem; }
+.art-custom-row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.art-custom-row input[type=text] { width: 94px; }
+.art-editor [hidden] { display: none !important; }

@@ -159,7 +159,7 @@ are intact.
 **Get the display enrollment secret from the server**
 
 ```bash
-docker exec pi-photo-frame cat /app/data/.display_token
+docker exec openfotoframe cat /app/data/.display_token
 ```
 
 **On the Pi — run the install script in display-only mode**

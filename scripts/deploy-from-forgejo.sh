@@ -22,8 +22,8 @@ else
     revision="${BASH_REMATCH[1]}"
 fi
 [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || exit 2
-git -C "$repo_dir" fetch --no-tags origin "$branch"
-latest="$(git -C "$repo_dir" rev-parse FETCH_HEAD)"
+git -C "$repo_dir" fetch --no-write-fetch-head --no-tags origin "refs/heads/$branch:refs/openfotoframe-cd/$branch"
+latest="$(git -C "$repo_dir" rev-parse "refs/openfotoframe-cd/$branch")"
 if [[ "$revision" != "$latest" ]]; then
     echo "Skipping superseded commit $revision; current $branch is $latest"
     # A newer tested workflow will queue the replacement.
@@ -59,8 +59,8 @@ docker build --label "org.opencontainers.image.revision=$revision" -t "$image" "
 # Tests run inside an ephemeral container without production volumes or networks.
 docker run --rm --network none -v "$release_dir/tests:/app/tests:ro" "$image" python -m pytest -q -p no:cacheprovider /app/tests
 # Discard a build if another merge arrived while it was running.
-git -C "$repo_dir" fetch --no-tags origin "$branch"
-[[ "$(git -C "$repo_dir" rev-parse FETCH_HEAD)" == "$revision" ]] || {
+git -C "$repo_dir" fetch --no-write-fetch-head --no-tags origin "refs/heads/$branch:refs/openfotoframe-cd/$branch"
+[[ "$(git -C "$repo_dir" rev-parse "refs/openfotoframe-cd/$branch")" == "$revision" ]] || {
     echo 'A newer commit arrived during the build; skipping this deployment.'; exit 0;
 }
 previous_image="$(docker inspect openfotoframe --format '{{.Image}}')"

@@ -18,6 +18,8 @@ jobs:
           python-version: '3.14'
       - run: uv venv && uv pip install -r requirements.txt
       - run: uv run --no-project python -m pytest -q
+      - name: Test artwork geometry and interaction
+        run: node --test tests/*.test.mjs
 
   deploy:
     needs: test

@@ -20,7 +20,7 @@ tsdproxy.port.1: 443/https:5000/http
 
 The server's production Compose definitions map Andrew's Tailscale login to the
 existing local `admin` account through `AUTHELIA_USER_MAP`, alongside the existing
-Authelia mappings. With the current SSO-aware development version, Tailscale
+Authelia mappings. With the SSO-aware production version, Tailscale
 access receives the application's ordinary user role because TSDProxy does not
 assert Authelia's `admins` group. Administrative settings remain available through
 the normal SSO route at **https://frame.swagner.tech**. Unmapped identities are
@@ -32,7 +32,7 @@ Tailscale split DNS; see the parent repository's `tailscale/README.md`.
 ## Deployment trigger
 
 `.forgejo/workflows/deploy.yml` tests pull requests and pushes to `main` with
-Python 3.14. After tests pass, pushes/merges to `main` and manual main-branch
+Python 3.14 and runs the JavaScript artwork tests. After tests pass, pushes/merges to `main` and manual main-branch
 workflow dispatches invoke the server over SSH through the runner's private
 Docker network. Pull requests cannot invoke deployment.
 

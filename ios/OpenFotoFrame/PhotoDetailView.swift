@@ -29,7 +29,10 @@ struct PhotoDetailView: View {
                                     finish: finish == "default" ? defaults.matFinish : finish,
                                     border: border == "default" ? defaults.borderEffect : border,
                                     bevel: overrideBevel ? bevel : defaults.bevelWidth,
-                                    scale: scale, fitMode: defaults.fitMode)
+                                    scale: scale, fitMode: defaults.fitMode,
+                                    lighting: BevelLighting(intensity: defaults.bevelLitIntensity ?? 50,
+                                                           vertical: defaults.bevelLitV ?? 15,
+                                                           horizontal: defaults.bevelLitH ?? 15))
                         .aspectRatio(MatPreviewGeometry.aspectRatio(defaults.targetAspectRatio), contentMode: .fit)
                         .listRowInsets(EdgeInsets())
                 } else if appearanceError != nil {
@@ -58,6 +61,7 @@ struct PhotoDetailView: View {
                 Picker("Border effect", selection: $border) {
                     Text("Use Frame Default").tag("default")
                     Text("Bevel").tag("bevel")
+                    Text("Bevel (lit)").tag("bevel-lit")
                     Text("Shadow").tag("shadow")
                 }
                 Toggle("Custom border width", isOn: $overrideBevel)

@@ -29,6 +29,7 @@ struct MatPhotoPreview: View {
     let bevel: Double
     let scale: Double
     let fitMode: String
+    var lighting = BevelLighting()
     @State private var image: UIImage?
     @State private var failed = false
     @State private var retry = 0
@@ -48,10 +49,12 @@ struct MatPhotoPreview: View {
                         let size = MatPreviewGeometry.photoSize(in: geometry.size, image: cropped.size, scale: scale, effect: effect, shadow: border == "shadow")
                         Image(uiImage: cropped).resizable().interpolation(.high)
                             .frame(width: size.width, height: size.height)
-                            .padding(border == "bevel" ? effect : 0)
+                            .padding(border == "bevel" || border == "bevel-lit" ? effect : 0)
                             .background(mat)
                             .overlay {
-                                if border == "bevel", effect > 0 { MatBevel(width: effect) }
+                                if border == "bevel" || border == "bevel-lit", effect > 0 {
+                                    MatBevel(width: effect, mat: mat, lighting: border == "bevel-lit" ? lighting : nil)
+                                }
                             }
                             .shadow(color: border == "shadow" ? .black.opacity(0.35) : .clear,
                                     radius: effect, y: effect * 0.5)
@@ -65,13 +68,17 @@ struct MatPhotoPreview: View {
         }
         .accessibilityElement(children: image == nil ? .contain : .ignore)
         .accessibilityLabel("Photo with mat")
-        .accessibilityValue("\(mat.frameHex), \(finish), \(border), \(Int(bevel)) pixels")
+        .accessibilityValue(accessibilityDescription)
         .accessibilityIdentifier("matPreview")
         .task(id: "\(filename)-\(retry)") {
             failed = false
             do { image = try await session.image("uploads/\(filename)") }
             catch { if !Task.isCancelled { failed = true } }
         }
+    }
+
+    private var accessibilityDescription: String {
+        "\(mat.frameHex), \(finish), \(border), \(Int(bevel)) pixels, light \(lighting.intensity)/\(lighting.vertical)/\(lighting.horizontal)"
     }
 
     private func croppedImage(_ image: UIImage) -> UIImage {
@@ -116,11 +123,74 @@ private struct MatTexture: View {
     }
 }
 
-private struct MatBevel: View {
+// Same corner lighting calculation as the web editor's getBevelColorsLit.
+struct BevelLighting {
+    var intensity = 50.0
+    var vertical = 15.0
+    var horizontal = 15.0
+
+    struct Shade {
+        let white: Bool
+        let opacity: Double
+        var color: Color { (white ? Color.white : Color.black).opacity(opacity) }
+    }
+
+    var corners: [Shade] {
+        let v = (min(100, max(0, vertical)) - 50) / 50
+        let h = (min(100, max(0, horizontal)) - 50) / 50
+        let i = min(100, max(0, intensity)) / 100
+        return [(v + h) / 2, (v - h) / 2, (h - v) / 2, -(v + h) / 2].map { factor in
+            let alpha = factor > 0 ? factor * i * 0.55 : (1 - factor) / 2 * (0.04 + 0.20 * (1 - i))
+            let rounded = (alpha * 1000).rounded() / 1000
+            return Shade(white: factor > 0, opacity: rounded < 0.005 ? 0 : rounded)
+        }
+    }
+}
+
+struct MatBevel: View {
     let width: CGFloat
+    let mat: Color
+    let lighting: BevelLighting?
     var body: some View {
-        Rectangle().strokeBorder(.black.opacity(0.15), lineWidth: width)
-            .overlay(Rectangle().strokeBorder(.black.opacity(0.08), lineWidth: 0.5).padding(width))
-            .allowsHitTesting(false)
+        Canvas { context, size in
+            let w = min(width, min(size.width, size.height) / 2)
+            let outer = [CGPoint.zero, CGPoint(x: size.width, y: 0),
+                         CGPoint(x: size.width, y: size.height), CGPoint(x: 0, y: size.height)]
+            let inner = [CGPoint(x: w, y: w), CGPoint(x: size.width - w, y: w),
+                         CGPoint(x: size.width - w, y: size.height - w), CGPoint(x: w, y: size.height - w)]
+            let corners = lighting?.corners
+            let hex = mat.frameHex.dropFirst()
+            let rgb = UInt32(hex, radix: 16) ?? 0xffffff
+            let luminance = (0.299 * Double((rgb >> 16) & 255) + 0.587 * Double((rgb >> 8) & 255) + 0.114 * Double(rgb & 255)) / 255
+            let innerAlpha = luminance < 0.5 ? 0.30 : 0.20
+            // Each trapezoid fades across its width; lit faces also blend along
+            // their length, meeting at the same four corner colors as the web.
+            let indices = [0, 1, 3, 2] // clockwise geometry -> TL, TR, BR, BL
+            for edge in 0..<4 {
+                let next = (edge + 1) % 4
+                var path = Path()
+                path.addLines([outer[edge], outer[next], inner[next], inner[edge]])
+                path.closeSubpath()
+                let start = CGPoint(x: (outer[edge].x + outer[next].x) / 2, y: (outer[edge].y + outer[next].y) / 2)
+                let end = CGPoint(x: (inner[edge].x + inner[next].x) / 2, y: (inner[edge].y + inner[next].y) / 2)
+                if let corners {
+                    context.fill(path, with: .color(.black.opacity(0.08)))
+                    context.drawLayer { layer in
+                        layer.clip(to: path)
+                        layer.fill(path, with: .linearGradient(Gradient(colors: [corners[indices[edge]].color, corners[indices[next]].color]), startPoint: outer[edge], endPoint: outer[next]))
+                        layer.blendMode = .destinationIn
+                        layer.fill(path, with: .linearGradient(Gradient(colors: [.black, .clear]), startPoint: start, endPoint: end))
+                    }
+                } else {
+                    context.fill(path, with: .linearGradient(Gradient(colors: [.clear, .black.opacity(innerAlpha)]), startPoint: start, endPoint: end))
+                }
+            }
+            context.stroke(Path(CGRect(x: w, y: w, width: size.width - 2 * w, height: size.height - 2 * w)), with: .color(.black.opacity(lighting == nil ? 0.08 : 0.16)), lineWidth: 0.5)
+            if lighting != nil {
+                var seams = Path()
+                for corner in 0..<4 { seams.move(to: outer[corner]); seams.addLine(to: inner[corner]) }
+                context.stroke(seams, with: .color(.black.opacity(0.12)), lineWidth: 0.5)
+            }
+        }.allowsHitTesting(false)
     }
 }

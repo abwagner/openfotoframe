@@ -44,6 +44,11 @@ def main():
         settings["mfa_mode"] = "optional"
         settings["mat_color"] = "#f5f0e6"
         settings["mat_finish"] = "linen"
+        settings["border_effect"] = "bevel-lit"
+        settings["bevel_width"] = 10
+        settings["bevel_lit_intensity"] = 25
+        settings["bevel_lit_v"] = 0
+        settings["bevel_lit_h"] = 50
         module.save_settings(settings)
         for index, color in enumerate(("#0d9488", "#ea9659")):
             name = f"abcdef0{index}_Landscape.jpg"

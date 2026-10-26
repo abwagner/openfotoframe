@@ -3,6 +3,22 @@ import SwiftUI
 @testable import OpenFotoFrame
 
 final class MatPreviewTests: XCTestCase {
+    func testLitBevelUsesServerLightingAndSupportsOlderServers() throws {
+        let json = ##"{"mat_color":"#ffffff","mat_finish":"eggshell","bevel_width":10,"border_effect":"bevel-lit","bevel_lit_intensity":25,"bevel_lit_v":0,"bevel_lit_h":50,"slideshow_interval":900,"transition_duration":1,"fit_mode":"contain","shuffle":true,"target_aspect_ratio":"16:9","image_order":[]}"##
+        let settings = try FrameJSON.decode(FrameSettings.self, from: Data(json.utf8))
+        let light = BevelLighting(intensity: settings.bevelLitIntensity!, vertical: settings.bevelLitV!, horizontal: settings.bevelLitH!)
+        XCTAssertEqual(settings.borderEffect, "bevel-lit")
+        XCTAssertEqual(light.corners.map(\.white), [false, false, true, true])
+        XCTAssertEqual(light.corners.map(\.opacity), [0.143, 0.143, 0.069, 0.069])
+        let reversed = BevelLighting(intensity: 25, vertical: 100, horizontal: 50)
+        XCTAssertEqual(reversed.corners.map(\.white), [true, true, false, false])
+        XCTAssertEqual(reversed.corners.map(\.opacity), [0.069, 0.069, 0.143, 0.143])
+        var old = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        for key in ["bevel_lit_intensity", "bevel_lit_v", "bevel_lit_h"] { old.removeValue(forKey: key) }
+        let legacy = try FrameJSON.decode(FrameSettings.self, from: JSONSerialization.data(withJSONObject: old))
+        XCTAssertNil(legacy.bevelLitIntensity)
+    }
+
     func testSharedPaletteAndExactSRGBRoundTrips() {
         let palette = MatPalette.shared
         XCTAssertEqual(palette.neutrals.count, 10)

@@ -100,6 +100,9 @@ struct FrameSettings: Decodable {
     var matFinish: String
     var bevelWidth: Double
     var borderEffect: String
+    var bevelLitIntensity: Double?
+    var bevelLitV: Double?
+    var bevelLitH: Double?
     var slideshowInterval: Double
     var transitionDuration: Double
     var fitMode: String

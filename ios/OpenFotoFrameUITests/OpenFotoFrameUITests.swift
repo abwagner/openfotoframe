@@ -138,6 +138,7 @@ final class OpenFotoFrameUITests: XCTestCase {
         XCTAssertTrue(preview.waitForExistence(timeout: 10))
         XCTAssertTrue((preview.value as? String ?? "").contains("#f5f0e6"))
         XCTAssertTrue((preview.value as? String ?? "").contains("linen"))
+        XCTAssertTrue((preview.value as? String ?? "").contains("bevel-lit, 10 pixels, light 25.0/0.0/50.0"), "Actual preview: \(preview.value ?? "missing")")
         capture("Native inherited cream mat", app: app)
         let toggle = app.switches["customMatToggle"]
         for _ in 0..<5 { if toggle.exists && toggle.isHittable { break }; app.swipeUp() }

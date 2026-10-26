@@ -79,6 +79,7 @@ struct AppearanceView: View {
                         }
                         Picker("Border", selection: value(\.borderEffect, fallback: "bevel")) {
                             Text("Bevel").tag("bevel")
+                            Text("Bevel (lit)").tag("bevel-lit")
                             Text("Shadow").tag("shadow")
                         }
                         Stepper("Border width: \(Int(settings?.bevelWidth ?? 0)) px", value: value(\.bevelWidth, fallback: 4), in: 0...16)

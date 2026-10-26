@@ -30,6 +30,10 @@ cd ios
 xcodegen generate
 ```
 
+The app icon uses the web app's `static/icons/openfotoframe-512.png` artwork.
+After changing that shared asset, run `swift ios/scripts/generate_icon.swift`
+from the repository root to rebuild the opaque 1024×1024 iOS icon.
+
 ## Feature coverage
 
 | Web functionality | In the iOS app |

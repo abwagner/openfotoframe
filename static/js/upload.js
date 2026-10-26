@@ -28,34 +28,26 @@
         const previewControlsBody = document.getElementById('preview-controls-body');
         const previewControlsTitle = document.getElementById('preview-controls-title');
 
-        // Neutral presets: shown by default (white to medium-brown warm tones)
-        const NEUTRAL_PRESETS = [
-            {color: '#ffffff', title: 'White'}, {color: '#f5f0e6', title: 'Cream'},
-            {color: '#faebd7', title: 'Antique White'}, {color: '#f0ead6', title: 'Eggshell'},
-            {color: '#e8dfd5', title: 'Sand'}, {color: '#d6cec5', title: 'Pebble'},
-            {color: '#c4a882', title: 'Tan'}, {color: '#b8a088', title: 'Khaki'},
-            {color: '#a08870', title: 'Driftwood'}, {color: '#8b7355', title: 'Medium Brown'},
-        ];
+        // Shared with the native app; theme colors never change these mat values.
+        const NEUTRAL_PRESETS = [];
+        const ACCENT_PRESETS = [];
 
-        // Accent presets: shown when "More Colors" is expanded
-        const ACCENT_PRESETS = [
-            {color: '#faf9f6', title: 'Soft White'}, {color: '#fffff0', title: 'Ivory'},
-            {color: '#faf0e6', title: 'Linen'}, {color: '#e0d8cf', title: 'Oyster'},
-            {color: '#d4a574', title: 'Camel'}, {color: '#a9a9a9', title: 'Silver'},
-            {color: '#808080', title: 'Gray'}, {color: '#2c2c2c', title: 'Charcoal'},
-            {color: '#111111', title: 'Black'}, {color: '#708090', title: 'Slate Gray'},
-            {color: '#1a1a2e', title: 'Dark Navy'}, {color: '#3d0c02', title: 'Dark Burgundy'},
-            {color: '#1b3a2d', title: 'Forest Green'}, {color: '#4a3728', title: 'Espresso'},
-            {color: '#8b0000', title: 'Dark Red'}, {color: '#003366', title: 'Navy Blue'},
-            {color: '#2e5339', title: 'Hunter Green'}, {color: '#4b0082', title: 'Indigo'},
-            {color: '#704214', title: 'Sepia'}, {color: '#b8860b', title: 'Dark Gold'},
-            {color: '#556b2f', title: 'Olive'}, {color: '#800020', title: 'Burgundy'},
-            {color: '#c08081', title: 'Dusty Rose'}, {color: '#7b9ea8', title: 'Steel Blue'},
-            {color: '#8fbc8f', title: 'Sage'},
-        ];
-
-        // Combined for per-image controls
-        const COLOR_PRESETS = [...NEUTRAL_PRESETS, ...ACCENT_PRESETS];
+        async function loadMatPalette() {
+            try {
+                const response = await fetch('/static/mat-colors.json');
+                if (!response.ok) throw new Error('Palette unavailable');
+                const palette = await response.json();
+                NEUTRAL_PRESETS.push(...palette.neutrals);
+                ACCENT_PRESETS.push(...palette.accents);
+                buildSidebarPresets();
+                bindSidebarPresets();
+                updateColorPresets();
+                if (previewFilename) renderSingleControls(previewFilename);
+                else if (previewGroupId) renderGroupControls(previewGroupId);
+            } catch (error) {
+                showStatus('Color presets could not load. Reload to try again.', 'error');
+            }
+        }
 
         // Settings elements
         const matColorInput = document.getElementById('mat-color');
@@ -80,7 +72,6 @@
                 `<div class="color-preset" style="background:${p.color};${p.color === '#ffffff' ? 'border:1px solid rgba(255,255,255,0.2);' : ''}" data-color="${p.color}" title="${p.title}"></div>`
             ).join('');
         }
-        buildSidebarPresets();
 
         function toggleMoreColors() {
             const accentEl = document.getElementById('accent-color-presets');
@@ -101,9 +92,6 @@
                 };
             });
         }
-        bindSidebarPresets();
-
-        const colorPresets = document.querySelectorAll('.settings-column .color-preset');
 
         // ===== Settings Tabs =====
         function switchSettingsTab(tab) {
@@ -132,6 +120,7 @@
 
         // ===== Initialize =====
         updatePreviewAspectRatio();
+        loadMatPalette();
         loadGallery();
 
         // ===== Upload Handling =====
@@ -530,8 +519,8 @@
                 </div>
                 <div class="group-edit-item" style="flex-direction:column;gap:8px;">
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <label style="font-size:0.8rem;color:#aaa;white-space:nowrap;">Mat Color:</label>
-                        <button style="font-size:0.7rem;padding:2px 6px;border:1px solid rgba(255,255,255,0.1);border-radius:4px;background:rgba(0,0,0,0.3);color:#aaa;cursor:pointer;"
+                        <label style="font-size:0.8rem;color:var(--text-secondary);white-space:nowrap;">Mat Color:</label>
+                        <button style="font-size:0.7rem;padding:2px 6px;border:1px solid rgba(255,255,255,0.1);border-radius:4px;background:var(--surface-muted);color:var(--text-secondary);cursor:pointer;"
                                 data-onclick="updateMatColor('${escAttr(filename)}', null); renderSinglePreviewImage('${escAttr(filename)}'); renderSingleControls('${escAttr(filename)}')">Reset</button>
                     </div>
                     <div class="color-presets" style="margin-top:0;">
@@ -544,8 +533,8 @@
                 </div>
                 <div class="group-edit-item" style="flex-wrap:wrap;gap:12px;">
                     <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:150px;">
-                        <label style="font-size:0.8rem;color:#aaa;white-space:nowrap;">Finish:</label>
-                        <select style="flex:1;padding:6px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(0,0,0,0.3);color:#e0e0e0;font-size:0.8rem;"
+                        <label style="font-size:0.8rem;color:var(--text-secondary);white-space:nowrap;">Finish:</label>
+                        <select style="flex:1;padding:6px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:var(--surface-muted);color:var(--text-primary);font-size:0.8rem;"
                                 data-onchange="updateImageField('${escAttr(filename)}','mat_finish',this.value||null)">
                             <option value="" ${!currentFinish ? 'selected' : ''}>Default</option>
                             <option value="flat" ${currentFinish==='flat' ? 'selected' : ''}>Flat</option>
@@ -556,8 +545,8 @@
                         </select>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:150px;">
-                        <label style="font-size:0.8rem;color:#aaa;white-space:nowrap;">Effect:</label>
-                        <select style="flex:1;padding:6px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(0,0,0,0.3);color:#e0e0e0;font-size:0.8rem;"
+                        <label style="font-size:0.8rem;color:var(--text-secondary);white-space:nowrap;">Effect:</label>
+                        <select style="flex:1;padding:6px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:var(--surface-muted);color:var(--text-primary);font-size:0.8rem;"
                                 data-onchange="updateImageField('${escAttr(filename)}','border_effect',this.value||null); renderSingleControls('${escAttr(filename)}')">
                             <option value="" ${!currentBorderEffect ? 'selected' : ''}>Default</option>
                             <option value="bevel" ${currentBorderEffect==='bevel' ? 'selected' : ''}>Bevel</option>
@@ -567,7 +556,7 @@
                 </div>
                 <div class="group-edit-item" style="flex-wrap:wrap;gap:12px;">
                     <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:150px;">
-                        <label style="font-size:0.8rem;color:#aaa;white-space:nowrap;">${effectLabel}: <span id="single-bevel-val">${currentBevel !== '' ? currentBevel + 'px' : parseInt(bevelWidthInput.value) + 'px'}</span></label>
+                        <label style="font-size:0.8rem;color:var(--text-secondary);white-space:nowrap;">${effectLabel}: <span id="single-bevel-val">${currentBevel !== '' ? currentBevel + 'px' : parseInt(bevelWidthInput.value) + 'px'}</span></label>
                         <input type="range" min="0" max="16" step="1" value="${currentBevel !== '' ? currentBevel : parseInt(bevelWidthInput.value)}"
                                style="flex:1;accent-color:#00d4ff;"
                                data-oninput="this.previousElementSibling.querySelector('span').textContent = this.value + 'px'; previewSingleBevel('${escAttr(filename)}', this.value)"
@@ -953,8 +942,8 @@
             const groupSettingsHtml = `
                 <div class="group-edit-item" style="flex-wrap:wrap;gap:12px;padding-bottom:12px;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.1);">
                     <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:150px;">
-                        <label style="font-size:0.8rem;color:#aaa;white-space:nowrap;">Finish:</label>
-                        <select style="flex:1;padding:6px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(0,0,0,0.3);color:#e0e0e0;font-size:0.8rem;"
+                        <label style="font-size:0.8rem;color:var(--text-secondary);white-space:nowrap;">Finish:</label>
+                        <select style="flex:1;padding:6px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:var(--surface-muted);color:var(--text-primary);font-size:0.8rem;"
                                 data-onchange="updateGroupField('${groupId}','mat_finish',this.value||null)">
                             <option value="" ${!currentFinish ? 'selected' : ''}>Default</option>
                             <option value="flat" ${currentFinish==='flat' ? 'selected' : ''}>Flat</option>
@@ -965,8 +954,8 @@
                         </select>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:150px;">
-                        <label style="font-size:0.8rem;color:#aaa;white-space:nowrap;">Effect:</label>
-                        <select style="flex:1;padding:6px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(0,0,0,0.3);color:#e0e0e0;font-size:0.8rem;"
+                        <label style="font-size:0.8rem;color:var(--text-secondary);white-space:nowrap;">Effect:</label>
+                        <select style="flex:1;padding:6px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:var(--surface-muted);color:var(--text-primary);font-size:0.8rem;"
                                 data-onchange="updateGroupField('${groupId}','border_effect',this.value||null); renderGroupControls('${groupId}')">
                             <option value="" ${!currentBorderEffect ? 'selected' : ''}>Default</option>
                             <option value="bevel" ${currentBorderEffect==='bevel' ? 'selected' : ''}>Bevel</option>
@@ -974,7 +963,7 @@
                         </select>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:150px;">
-                        <label style="font-size:0.8rem;color:#aaa;white-space:nowrap;">${effectLabel}: <span id="group-bevel-val">${currentBevel !== '' ? currentBevel + 'px' : parseInt(bevelWidthInput.value) + 'px'}</span></label>
+                        <label style="font-size:0.8rem;color:var(--text-secondary);white-space:nowrap;">${effectLabel}: <span id="group-bevel-val">${currentBevel !== '' ? currentBevel + 'px' : parseInt(bevelWidthInput.value) + 'px'}</span></label>
                         <input type="range" min="0" max="16" step="1" value="${currentBevel !== '' ? currentBevel : parseInt(bevelWidthInput.value)}"
                                style="flex:1;accent-color:#00d4ff;"
                                data-oninput="this.previousElementSibling.querySelector('span').textContent = this.value + 'px'; previewGroupBevel('${groupId}', this.value)"
@@ -1591,7 +1580,7 @@
 
         function previewScaledEffect(effectSize) {
             const pw = previewContent.clientWidth || matPreview.clientWidth || 800;
-            return Math.max(1, Math.round(effectSize * pw / 1920));
+            return effectSize > 0 ? Math.max(0.5, effectSize * pw / 1920) : 0;
         }
 
         function makeEffectHtml(innerHtml, effectSize, matColor, borderEffect) {

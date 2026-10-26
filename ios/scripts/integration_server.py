@@ -42,6 +42,8 @@ def main():
         module.save_users(users)
         settings = module.load_settings()
         settings["mfa_mode"] = "optional"
+        settings["mat_color"] = "#f5f0e6"
+        settings["mat_finish"] = "linen"
         module.save_settings(settings)
         for index, color in enumerate(("#0d9488", "#ea9659")):
             name = f"abcdef0{index}_Landscape.jpg"

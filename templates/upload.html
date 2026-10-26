@@ -7,6 +7,7 @@
     <title>OpenFotoFrame</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/upload.css') }}">
     <script src="{{ url_for('static', filename='js/legacy-events.js') }}" defer></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
 </head>
 <body data-load-network-info="{{ 'true' if is_admin and password_changed else 'false' }}">
     <div class="container">

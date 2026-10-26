@@ -42,7 +42,7 @@ xcodegen generate
 | Slideshow order | Photos → menu → Reorder Slideshow |
 | Create and dissolve groups | Native Select → Group and Photo Groups → Ungroup |
 | Group membership, scales, match heights, group mat/effects | Photo Groups → Edit Group in Web Editor; opens the selected group |
-| Individual zoom, mat color/finish, border effect/width, title | Native photo detail form with explicit Save |
+| Individual zoom, mat color/finish, border effect/width, title | Native photo detail form with a live mat preview and explicit Save |
 | Interactive crop, clear crop, exact rendered preview, color presets | Photo → Crop & Full Preview; opens the selected photo in the web editor |
 | Global mat appearance, timing, fades, shuffle, fit, screen ratio | Settings → Mat & Slideshow |
 | Next/previous, pause/play, current slide count | Native Frame tab, synchronized with the server every five seconds while active |
@@ -52,6 +52,18 @@ xcodegen generate
 | Add/delete users and reset passwords | Settings → Manage Users |
 | Change own password, TOTP enrollment, passkey enrollment, recovery codes | Settings → account/security screens; passkeys require the domain setup below |
 | Sign out or switch servers | Settings → Sign Out / Disconnect This Frame |
+
+Both color pickers use the same 35 named presets from `static/mat-colors.json`,
+which Xcode bundles as a resource and the web app fetches as static JSON. Custom
+colors are saved as sRGB hex values, with rounded channels to avoid shifting a
+saved color by one level. The native photo preview loads the frame's mat color,
+finish, border, fit mode, and screen ratio, then applies any per-photo overrides,
+saved crop, and live scale changes. Fill Screen intentionally hides the mat.
+
+The web management pages use a shared system-style theme with light/dark neutral
+surfaces, rounded cards, segmented controls, and teal actions. This theme does not
+change saved mat values or the full-screen TV display stylesheet. Deploy the web
+changes to the frame server to update the live site and its embedded editors.
 
 Administration links are shown for administrators. All operations still use the
 server's own authorization. Host installation, Docker upgrades, kiosk autostart,

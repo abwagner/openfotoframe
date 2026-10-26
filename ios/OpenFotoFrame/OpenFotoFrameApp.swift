@@ -75,12 +75,21 @@ private struct ConnectView: View {
                     }
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Server address").font(.headline)
-                        TextField("https://frame.example.com", text: $address)
-                            .textContentType(.URL).keyboardType(.URL)
-                            .textInputAutocapitalization(.never).autocorrectionDisabled()
-                            .textFieldStyle(.roundedBorder)
-                            .accessibilityIdentifier("serverAddress")
-                            .onSubmit(connect)
+                        HStack {
+                            TextField("https://frame.example.com", text: $address)
+                                .textContentType(.URL).keyboardType(.URL)
+                                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                                .textFieldStyle(.plain)
+                                .accessibilityIdentifier("serverAddress")
+                                .onSubmit(connect)
+                            if !address.isEmpty {
+                                Button { address = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                                    .buttonStyle(.plain).accessibilityLabel("Clear Server Address")
+                                    .accessibilityIdentifier("clearServerAddress")
+                            }
+                        }.padding(10)
+                            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.quaternary))
                         Text("Use the same address you open in your browser. Local HTTP and Tailscale IP addresses are supported.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
@@ -131,14 +140,18 @@ struct ServerImage: View {
 
 extension Color {
     init(frameHex: String) {
-        let hex = frameHex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
-        let number = UInt64(hex, radix: 16) ?? 0xffffff
-        self.init(red: Double((number >> 16) & 255) / 255, green: Double((number >> 8) & 255) / 255, blue: Double(number & 255) / 255)
+        let raw = frameHex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        let hex = raw.count == 3 ? raw.map { "\($0)\($0)" }.joined() : raw
+        let number = hex.count == 6 ? (UInt64(hex, radix: 16) ?? 0xffffff) : 0xffffff
+        self.init(.sRGB, red: Double((number >> 16) & 255) / 255, green: Double((number >> 8) & 255) / 255, blue: Double(number & 255) / 255, opacity: 1)
     }
     var frameHex: String {
-        let color = UIColor(self).resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
+        let resolved = UIColor(self).resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
+        let space = CGColorSpace(name: CGColorSpace.sRGB)!
+        let color = resolved.cgColor.converted(to: space, intent: .relativeColorimetric, options: nil).map { UIColor(cgColor: $0) } ?? resolved
         var r: CGFloat = 1, g: CGFloat = 1, b: CGFloat = 1, a: CGFloat = 1
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
-        return String(format: "#%02x%02x%02x", Int(r * 255), Int(g * 255), Int(b * 255))
+        func channel(_ value: CGFloat) -> Int { Int((max(0, min(1, value)) * 255).rounded()) }
+        return String(format: "#%02x%02x%02x", channel(r), channel(g), channel(b))
     }
 }

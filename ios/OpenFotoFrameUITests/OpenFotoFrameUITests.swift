@@ -124,6 +124,39 @@ final class OpenFotoFrameUITests: XCTestCase {
         // The live check only opens the gallery. No uploads or mutations.
     }
 
+    func testMatPreviewInheritsDefaultsAndSavesExactPreset() throws {
+        guard let server = ProcessInfo.processInfo.environment["FRAME_TEST_SERVER"] else {
+            throw XCTSkip("Run with the isolated fixture server.")
+        }
+        let app = XCUIApplication()
+        app.launchArguments = ["--manual-frame-connection"]
+        app.launch()
+        connect(app, server: server, username: "admin", password: "ios-integration-password")
+        XCTAssertTrue(app.navigationBars["Your Photos"].waitForExistence(timeout: 10))
+        app.buttons["galleryPhoto-abcdef00_Landscape.jpg"].tap()
+        let preview = app.descendants(matching: .any).matching(identifier: "matPreview").firstMatch
+        XCTAssertTrue(preview.waitForExistence(timeout: 10))
+        XCTAssertTrue((preview.value as? String ?? "").contains("#f5f0e6"))
+        XCTAssertTrue((preview.value as? String ?? "").contains("linen"))
+        capture("Native inherited cream mat", app: app)
+        let toggle = app.switches["customMatToggle"]
+        for _ in 0..<5 { if toggle.exists && toggle.isHittable { break }; app.swipeUp() }
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(toggle.value as? String, "1")
+        capture("Custom mat enabled", app: app)
+        let tan = app.buttons["matPreset-Tan"]
+        for _ in 0..<3 { if tan.exists && tan.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(tan.exists)
+        tan.tap()
+        capture("Shared native mat colors", app: app)
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.navigationBars["Your Photos"].waitForExistence(timeout: 10))
+        app.buttons["galleryPhoto-abcdef00_Landscape.jpg"].tap()
+        XCTAssertTrue(preview.waitForExistence(timeout: 10))
+        XCTAssertTrue((preview.value as? String ?? "").contains("#c4a882"))
+        capture("Native saved tan mat", app: app)
+    }
+
     func testAutomaticConnectionPreservesRequiredLogin() throws {
         guard let server = ProcessInfo.processInfo.environment["FRAME_TEST_SERVER"] else {
             throw XCTSkip("Run the OpenFotoFrameIntegration scheme with the fixture server.")
@@ -181,7 +214,7 @@ final class OpenFotoFrameUITests: XCTestCase {
     }
 
     private func clear(_ field: XCUIElement) {
-        let value = field.value as? String ?? ""
-        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count))
+        XCUIApplication().buttons["clearServerAddress"].tap()
+        field.tap()
     }
 }

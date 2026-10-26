@@ -73,7 +73,7 @@ struct AppearanceView: View {
             if settings != nil {
                 Form {
                     Section("Default Mat") {
-                        ColorPicker("Mat color", selection: $color, supportsOpacity: false)
+                        MatColorPicker(color: $color)
                         Picker("Finish", selection: value(\.matFinish, fallback: "eggshell")) {
                             ForEach(["eggshell", "flat", "linen", "suede", "silk"], id: \.self) { Text($0.capitalized) }
                         }

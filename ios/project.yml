@@ -13,7 +13,10 @@ targets:
   OpenFotoFrame:
     type: application
     platform: iOS
-    sources: [OpenFotoFrame]
+    sources:
+      - path: OpenFotoFrame
+      - path: ../static/mat-colors.json
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: tech.swagner.openfotoframe

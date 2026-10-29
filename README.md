@@ -9,6 +9,10 @@ uploads, appearance settings, and slideshow remote with the existing web editors
 for cropping, groups, TV schedules, backups, user administration, and MFA. Open
 `ios/OpenFotoFrame.xcodeproj` in Xcode and connect it to your existing server.
 
+The [general release architecture](docs/RELEASE_ARCHITECTURE.md) specifies hosted
+and self-hosted onboarding, invitations, QR login, collection/frame permissions,
+and migration. These release controls are a design, not current functionality.
+
 ## Features
 
 The proposed multi-display allocator and aspect-aware rendering architecture is

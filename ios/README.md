@@ -4,6 +4,10 @@ A SwiftUI companion for the existing OpenFotoFrame server. Everyday photo manage
 is native; advanced workflows use the server's existing pages inside the app. No
 backend migration, new API, or third-party iOS package is required.
 
+This describes the current companion build. The
+[general release architecture](../docs/RELEASE_ARCHITECTURE.md) defines its planned
+replacement onboarding, first-party login, invitations, and scoped access model.
+
 ## Open and run
 
 1. Open `OpenFotoFrame.xcodeproj` in Xcode (16 or newer).

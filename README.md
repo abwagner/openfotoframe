@@ -9,6 +9,17 @@ uploads, appearance settings, and slideshow remote with the existing web editors
 for cropping, groups, TV schedules, backups, user administration, and MFA. Open
 `ios/OpenFotoFrame.xcodeproj` in Xcode and connect it to your existing server.
 
+## Local screenshot demo
+
+Run `.venv/bin/python scripts/demo_server.py` after installing the requirements,
+then open <http://127.0.0.1:5080/gallery>. The demo uses disposable data, six
+stock photos and automatic local sign-in. Your real gallery is never loaded.
+See [setup and photo credits](docs/LOCAL_DEMO.md).
+
+![Stock-photo demo gallery](docs/screenshots/gallery.jpg)
+
+![Two-photo display with a linen mat](docs/screenshots/display.jpg)
+
 ## Features
 
 The proposed multi-display allocator and aspect-aware rendering architecture is

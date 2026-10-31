@@ -41,6 +41,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		F0E1D2C3B4A5968778695A4B /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 		084A07C05F74FE77DB281E87 /* UploadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadView.swift; sourceTree = "<group>"; };
 		14EE856D53254DCE08663FEC /* PhotoDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoDetailView.swift; sourceTree = "<group>"; };
 		324AD40EED2FB2630AA4C174 /* DisplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayView.swift; sourceTree = "<group>"; };
@@ -111,6 +112,7 @@
 		DC9616F4BC3562E12E30CF37 = {
 			isa = PBXGroup;
 			children = (
+				F0E1D2C3B4A5968778695A4B /* Signing.xcconfig */,
 				29DF746C84CA9E1A1EE8815F /* OpenFotoFrame */,
 				3BDB9209099855B996D64622 /* OpenFotoFrameTests */,
 				B6F34301384FE7464F2BCA79 /* OpenFotoFrameUITests */,
@@ -184,9 +186,6 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
-					3370318CEAA901C12CB437A3 = {
-						DevelopmentTeam = BC9NG49J8V;
-					};
 					877BEA4D3E63576B4C498AEB = {
 						TestTargetID = 3370318CEAA901C12CB437A3;
 					};
@@ -377,10 +376,11 @@
 		};
 		719387233E824B975DC823F3 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F0E1D2C3B4A5968778695A4B /* Signing.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = BC9NG49J8V;
+				DEVELOPMENT_TEAM = "$(OPENFOTOFRAME_DEVELOPMENT_TEAM)";
 				INFOPLIST_FILE = OpenFotoFrame/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -411,10 +411,11 @@
 		};
 		AEEA33223B6B1C73E85A6B97 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F0E1D2C3B4A5968778695A4B /* Signing.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = BC9NG49J8V;
+				DEVELOPMENT_TEAM = "$(OPENFOTOFRAME_DEVELOPMENT_TEAM)";
 				INFOPLIST_FILE = OpenFotoFrame/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

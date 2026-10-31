@@ -7,9 +7,9 @@ backend migration, new API, or third-party iOS package is required.
 ## Open and run
 
 1. Open `OpenFotoFrame.xcodeproj` in Xcode (16 or newer).
-2. Choose the **OpenFotoFrame** scheme and an iPhone/iPad simulator, or select your
-   signing team and a physical device. The deployment target is iOS 17. Andrew's
-   signing team `BC9NG49J8V` is preserved in both the project and generator spec.
+2. Choose the **OpenFotoFrame** scheme and an iPhone/iPad simulator. For a physical
+   device, configure your signing team as described below. The deployment target
+   is iOS 17; the published project has no default signing team.
 3. Run. The app connects directly to
    `https://frame.tail5e8630.ts.net` and opens the native gallery without a sign-in
    screen when the server permits access. Your iPhone must be
@@ -29,6 +29,17 @@ The Xcode project is checked in. To regenerate it after changing `project.yml`:
 cd ios
 xcodegen generate
 ```
+
+### Local signing configuration
+
+Copy `Signing.local.xcconfig.example` to `Signing.local.xcconfig` and replace
+`YOURTEAMID` with your Apple Developer Team ID. This local file is ignored by Git.
+Both Debug and Release include it through `Signing.xcconfig`, including after
+regenerating the project with XcodeGen. Do not hardcode a personal team in the
+project or generator spec. CI can instead pass
+`OPENFOTOFRAME_DEVELOPMENT_TEAM=YOURTEAMID` to `xcodebuild`.
+
+Simulator builds can continue using `CODE_SIGNING_ALLOWED=NO` without a team.
 
 ## Feature coverage
 

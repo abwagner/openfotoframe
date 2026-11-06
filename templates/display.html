@@ -21,8 +21,10 @@
         <button class="control-btn" id="previous-btn" data-onclick="previousSlide()">← Prev</button>
         <button class="control-btn" id="pause-btn" data-onclick="togglePause()" aria-label="Pause slideshow">⏸ Pause</button>
         <button class="control-btn" id="next-btn" data-onclick="nextSlide()">Next →</button>
-        <button class="control-btn" id="fullscreen-btn" data-onclick="toggleFullscreen()">⛶ Full</button>
+        <button class="control-btn" id="fullscreen-btn" data-onclick="enterFullscreen()">⛶ Full</button>
+        <button class="control-btn fullscreen-exit" id="exit-fullscreen-btn" data-onclick="exitFullscreen()" hidden>⛶ Exit Full</button>
     </div>
+    <script src="{{ url_for('static', filename='js/display-fullscreen.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/display.js') }}" defer></script>
 </body>
 </html>

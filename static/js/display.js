@@ -115,19 +115,6 @@ function nextSlide()     { sendControl('next'); }
 function previousSlide() { sendControl('prev'); }
 function togglePause()   { sendControl(isPaused ? 'play' : 'pause'); }
 
-function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-    } else {
-        document.exitFullscreen();
-    }
-}
-
-document.addEventListener('fullscreenchange', () => {
-    const btn = document.getElementById('fullscreen-btn');
-    if (btn) btn.textContent = document.fullscreenElement ? '⛶ Exit Full' : '⛶ Full';
-});
-
 // Show controls on mouse move, hide cursor + controls after 3 s
 (function() {
     let hideTimer = null;

@@ -254,5 +254,17 @@
             background: rgba(0, 0, 0, 0.7);
         }
 
+/* Exit sits beside Full without widening/recentering the calibrated control row. */
+.fullscreen-exit {
+    position: absolute;
+    left: calc(100% + 10px);
+    bottom: 0;
+    white-space: nowrap;
+}
+#fullscreen-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
 #art-surface { position: fixed; inset: 0; background: #171411; }
 [hidden] { display: none !important; }

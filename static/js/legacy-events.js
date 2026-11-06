@@ -7,7 +7,7 @@
         'openSettingsModal','previousSlide','proceedUpload','refreshPreview','removeTvSchedule',
         'resetPassword','saveBackupSettings','showResetPassword','startGroupMode',
         'switchSettingsTab','testCec','toggleGalleryView','toggleImage','toggleMoreColors',
-        'toggleFullscreen','togglePause','toggleScheduleDay','toggleSelect','triggerBackup','triggerFileInput','updateCropAspectLock','updateCropAspectRatio','updateCropPreviewZoom',
+        'enterFullscreen','exitFullscreen','toggleFullscreen','togglePause','toggleScheduleDay','toggleSelect','triggerBackup','triggerFileInput','updateCropAspectLock','updateCropAspectRatio','updateCropPreviewZoom',
         'triggerRestore','ungroupFromPreview','ungroupGroup','updateGroupField',
         'updateGroupMatColor','updateGroupScale','updateGroupScalePreview','toggleDisplayProfile','updateImageField',
         'updateMatColor','updateScheduleField','updateSingleScale','updateSingleScalePreview',

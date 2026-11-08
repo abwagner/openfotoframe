@@ -3,6 +3,7 @@
 import json
 import hashlib
 import time
+import pytest
 from unittest.mock import patch
 
 import sys
@@ -66,6 +67,49 @@ class TestDisplayPage:
 
 
 class TestAutoPortraitPairing:
+    @pytest.mark.parametrize(('width', 'height', 'crop', 'expected'), [
+        (4032, 3024, {'x': 0.202, 'y': 0.074, 'w': 0.522, 'h': 0.837}, True),
+        (4032, 3024, {'x': 0.109, 'y': 0, 'w': 0.588, 'h': 1}, True),
+        (4896, 3672, {'x': 0.053, 'y': 0, 'w': 0.53, 'h': 1}, True),
+        (3000, 4000, {'x': 0, 'y': 0, 'w': 1, 'h': 0.4}, False),
+        (3000, 4000, None, True),
+        (4000, 3000, None, False),
+        (1000, 1000, None, False),
+        (1000, 1150, None, False),
+        (None, None, None, False),
+        (1000, 2000, {'w': 0, 'h': 1}, False),
+    ])
+    def test_portrait_classification_uses_displayed_crop(self, width, height, crop, expected):
+        assert photo_app._is_portrait({'width': width, 'height': height, 'crop': crop}) is expected
+
+    def test_pairs_cropped_portraits_and_leaves_cropped_landscape_single(self):
+        def single(filename, width, height, crop):
+            return {'type': 'single', 'images': [{
+                'filename': filename, 'width': width, 'height': height, 'crop': crop,
+            }]}
+        first = single('cropped-a.jpg', 4000, 3000, {'x': 0, 'y': 0, 'w': 0.5, 'h': 1})
+        wide = single('cropped-wide.jpg', 3000, 4000, {'x': 0, 'y': 0, 'w': 1, 'h': 0.4})
+        second = single('cropped-b.jpg', 4000, 3000, {'x': 0, 'y': 0, 'w': 0.5, 'h': 1})
+        explicit_group = {'type': 'group', 'group_id': 'manual', 'images': first['images']}
+        odd = single('odd.jpg', 3000, 4000, None)
+
+        slides = photo_app._auto_pair_portraits([first, wide, second, explicit_group, odd])
+
+        assert [image['filename'] for image in slides[0]['images']] == ['cropped-a.jpg', 'cropped-b.jpg']
+        assert slides[1] is wide
+        assert slides[2] is explicit_group
+        assert slides[3] is odd
+
+    def test_pair_snapshot_identity_changes_with_crop_but_is_stable_otherwise(self):
+        first = {'type': 'single', 'images': [{'filename': 'a.jpg', 'width': 100, 'height': 200}]}
+        second = {'type': 'single', 'images': [{'filename': 'b.jpg', 'width': 100, 'height': 200}]}
+        original = photo_app._auto_pair_portraits([first, second])[0]['group_id']
+        assert photo_app._auto_pair_portraits([first, second])[0]['group_id'] == original
+        first['images'][0]['crop'] = {'x': 0.1, 'y': 0, 'w': 0.8, 'h': 1}
+        cropped = photo_app._auto_pair_portraits([first, second])[0]['group_id']
+        assert cropped != original
+        assert photo_app._auto_pair_portraits([first, second])[0]['group_id'] == cropped
+
     def test_pair_normalizes_effective_scales_without_mutating_images(self):
         first = {
             'type': 'single',

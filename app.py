@@ -2337,9 +2337,12 @@ def api_backfill_snapshots():
 
 
 def _is_portrait(img_data, threshold=1.15):
-    """Return True if an image is portrait-oriented (height/width > threshold)."""
+    """Classify the displayed crop, using the EXIF-oriented image dimensions."""
     w = img_data.get('width') or 0
     h = img_data.get('height') or 0
+    crop = img_data.get('crop') or {}
+    w *= crop.get('w', 1)
+    h *= crop.get('h', 1)
     return h > 0 and w > 0 and (h / w) > threshold
 
 
@@ -2374,7 +2377,8 @@ def _auto_pair_portraits(slides):
             pair_image = dict(image)
             pair_image['scale'] = 1.0
             pair_images.append(pair_image)
-        pair_key = img1['filename'] + '|' + img2['filename']
+        # Crop/appearance edits must not reuse an older cached pair snapshot.
+        pair_key = json.dumps(pair_images, sort_keys=True, separators=(',', ':'))
         synthetic_id = '__pair_' + hashlib.sha1(pair_key.encode()).hexdigest()[:16]
         paired_indices.update([i, j])
         pair_insertions[i] = {

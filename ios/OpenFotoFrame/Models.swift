@@ -65,10 +65,18 @@ struct FramePhoto: Decodable, Identifiable, Hashable {
     let matFinish: String?
     let bevelWidth: Double?
     let borderEffect: String?
+    let crop: FrameCrop?
     var displayName: String {
         if let title, !title.isEmpty { return title }
         return filename.replacingOccurrences(of: "^[a-f0-9]{8}_", with: "", options: .regularExpression)
     }
+}
+
+struct FrameCrop: Decodable, Hashable {
+    let x: Double
+    let y: Double
+    let w: Double
+    let h: Double
 }
 
 struct FrameGroup: Decodable {
@@ -92,6 +100,9 @@ struct FrameSettings: Decodable {
     var matFinish: String
     var bevelWidth: Double
     var borderEffect: String
+    var bevelLitIntensity: Double?
+    var bevelLitV: Double?
+    var bevelLitH: Double?
     var slideshowInterval: Double
     var transitionDuration: Double
     var fitMode: String

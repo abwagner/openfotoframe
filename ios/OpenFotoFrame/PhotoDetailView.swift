@@ -16,13 +16,28 @@ struct PhotoDetailView: View {
     @State private var saving = false
     @State private var deleting = false
     @State private var web: WebDestination?
+    @State private var defaults: FrameSettings?
+    @State private var appearanceError: String?
+    @State private var crop: FrameCrop?
 
     var body: some View {
         Form {
             Section {
-                ServerImage(path: "uploads/\(photo.filename)", fit: .fit)
-                    .frame(height: 260).listRowInsets(EdgeInsets())
-                    .background(overrideMat ? mat : Color(.secondarySystemBackground))
+                if let defaults {
+                    MatPhotoPreview(filename: photo.filename, crop: crop,
+                                    mat: overrideMat ? mat : Color(frameHex: defaults.matColor),
+                                    finish: finish == "default" ? defaults.matFinish : finish,
+                                    border: border == "default" ? defaults.borderEffect : border,
+                                    bevel: overrideBevel ? bevel : defaults.bevelWidth,
+                                    scale: scale, fitMode: defaults.fitMode,
+                                    lighting: BevelLighting(intensity: defaults.bevelLitIntensity ?? 50,
+                                                           vertical: defaults.bevelLitV ?? 15,
+                                                           horizontal: defaults.bevelLitH ?? 15))
+                        .aspectRatio(MatPreviewGeometry.aspectRatio(defaults.targetAspectRatio), contentMode: .fit)
+                        .listRowInsets(EdgeInsets())
+                } else if appearanceError != nil {
+                    Button("Reload Frame Appearance", systemImage: "arrow.clockwise") { Task { await loadAppearance() } }
+                } else { ProgressView("Loading frame appearance…").frame(maxWidth: .infinity, minHeight: 180) }
             }
             Section("Photo") {
                 TextField("Title", text: $title).accessibilityIdentifier("photoTitle")
@@ -37,8 +52,8 @@ struct PhotoDetailView: View {
                     Text("Scale: \(scale, specifier: "%.2f")×")
                     Slider(value: $scale, in: 0.1...3, step: 0.05)
                 }
-                Toggle("Custom mat color", isOn: $overrideMat)
-                if overrideMat { ColorPicker("Mat color", selection: $mat, supportsOpacity: false) }
+                Toggle("Custom mat color", isOn: $overrideMat).accessibilityIdentifier("customMatToggle")
+                if overrideMat { MatColorPicker(color: $mat) }
                 Picker("Mat finish", selection: $finish) {
                     Text("Use Frame Default").tag("default")
                     ForEach(["eggshell", "flat", "linen", "suede", "silk"], id: \.self) { Text($0.capitalized).tag($0) }
@@ -46,12 +61,14 @@ struct PhotoDetailView: View {
                 Picker("Border effect", selection: $border) {
                     Text("Use Frame Default").tag("default")
                     Text("Bevel").tag("bevel")
+                    Text("Bevel (lit)").tag("bevel-lit")
                     Text("Shadow").tag("shadow")
                 }
                 Toggle("Custom border width", isOn: $overrideBevel)
                 if overrideBevel { Stepper("Width: \(Int(bevel)) px", value: $bevel, in: 0...16) }
             } header: { Text("Display appearance") } footer: {
-                Text("Save to update the frame. Use the full editor for an accurate mat preview, interactive crop, and matching heights across groups.")
+                Text("The preview uses your frame’s defaults unless overridden here. Save to update the frame. Use the full editor for interactive cropping and matching group heights.")
+                if defaults?.fitMode == "cover" { Text("Fill Screen hides the mat. Choose Show Whole Photo in Mat & Slideshow to display it.") }
             }
             Section {
                 Button("Crop & Full Preview", systemImage: "crop.rotate") {
@@ -81,6 +98,7 @@ struct PhotoDetailView: View {
             NavigationStack { FrameWebScreen(destination: destination) }
         }
         .onAppear { populate(photo) }
+        .task { await loadAppearance() }
     }
 
     private func populate(_ photo: FramePhoto) {
@@ -88,15 +106,25 @@ struct PhotoDetailView: View {
         enabled = photo.enabled
         scale = photo.scale ?? 1
         overrideMat = photo.matColor != nil
-        mat = Color(frameHex: photo.matColor ?? "#ffffff")
+        mat = Color(frameHex: photo.matColor ?? defaults?.matColor ?? "#ffffff")
         finish = photo.matFinish ?? "default"
         border = photo.borderEffect ?? "default"
         overrideBevel = photo.bevelWidth != nil
-        bevel = photo.bevelWidth ?? 4
+        bevel = photo.bevelWidth ?? defaults?.bevelWidth ?? 4
+        crop = photo.crop
     }
     private func reload() async {
         await session.refresh()
+        await loadAppearance()
         if let updated = session.gallery?.images.first(where: { $0.id == photo.id }) { populate(updated) }
+    }
+    private func loadAppearance() async {
+        do {
+            defaults = try await session.get("api/settings", as: FrameSettings.self)
+            if !overrideMat, let defaults { mat = Color(frameHex: defaults.matColor) }
+            if !overrideBevel, let defaults { bevel = defaults.bevelWidth }
+            appearanceError = nil
+        } catch { appearanceError = error.localizedDescription; session.error = error.localizedDescription }
     }
     private func save() {
         Task {

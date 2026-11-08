@@ -49,7 +49,9 @@ struct SettingsView: View {
             } footer: {
                 Text("Advanced editors open your frame’s web interface and share your sign-in. Server permissions apply to every action.")
             }
-            Section { LabeledContent("OpenFotoFrame for iOS", value: "0.1.0") }
+            Section {
+                LabeledContent("OpenFotoFrame for iOS", value: appVersion)
+            }
         }
         .navigationTitle("Settings")
         .confirmationDialog("Sign out and forget this server?", isPresented: $disconnecting, titleVisibility: .visible) {
@@ -58,6 +60,12 @@ struct SettingsView: View {
         .sheet(item: $web, onDismiss: { Task { await session.refresh() } }) { destination in
             NavigationStack { FrameWebScreen(destination: destination) }
         }
+    }
+
+    private var appVersion: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
+        return "\(version) (\(build))"
     }
 }
 
@@ -73,12 +81,13 @@ struct AppearanceView: View {
             if settings != nil {
                 Form {
                     Section("Default Mat") {
-                        ColorPicker("Mat color", selection: $color, supportsOpacity: false)
+                        MatColorPicker(color: $color)
                         Picker("Finish", selection: value(\.matFinish, fallback: "eggshell")) {
                             ForEach(["eggshell", "flat", "linen", "suede", "silk"], id: \.self) { Text($0.capitalized) }
                         }
                         Picker("Border", selection: value(\.borderEffect, fallback: "bevel")) {
                             Text("Bevel").tag("bevel")
+                            Text("Bevel (lit)").tag("bevel-lit")
                             Text("Shadow").tag("shadow")
                         }
                         Stepper("Border width: \(Int(settings?.bevelWidth ?? 0)) px", value: value(\.bevelWidth, fallback: 4), in: 0...16)

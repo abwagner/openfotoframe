@@ -48,7 +48,7 @@ final class FrameSession: ObservableObject {
             guard html.contains("name=\"csrf-token\"") else { return }
             let data = try await send("api/gallery")
             gallery = try FrameJSON.decode(Gallery.self, from: data)
-            isAdmin = html.contains("href=\"/admin/users\"")
+            isAdmin = html.contains("href=\"/admin\"") || html.contains("href=\"/admin/users\"")
             authenticated = true
             error = nil
         } catch is CancellationError { }

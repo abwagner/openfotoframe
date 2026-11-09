@@ -15,6 +15,18 @@ One iOS app supports two explicit deployment modes:
 | OpenFotoFrame Cloud | The configured central service | OpenFotoFrame account; a paid household subscription |
 | Your own server | A URL entered by the user or supplied by an invite/setup code | First-party account on that server; independent of cloud billing |
 
+Paid-service scope decision, 2026-11-09: subscriptions include managed photo
+storage operated by OpenFotoFrame. Customers do not need Dropbox, Google Drive,
+OneDrive, external TV storage or a dedicated TV app to use the paid service.
+Personal cloud-storage backends and dedicated TV clients are deferred and are not
+launch dependencies. The existing web display remains supported. Self-hosted
+installations retain their independently operated storage.
+
+Plan storage allowances and prices remain configurable until selected. Paid-launch
+work should prioritize storage metering/quota enforcement, reliable media delivery,
+backup/restore, retention policy and sustainable operating costs for included
+managed storage; do not introduce a bring-your-own-storage onboarding step.
+
 There is no server discovery, network scan, or automatic server selection.
 OpenFotoFrame owns authentication in both modes; Authelia is not part of the
 release architecture. No VPN detection or prerequisite appears in onboarding.

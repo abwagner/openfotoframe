@@ -5,6 +5,15 @@ service, existing library, physical display, installed app or TestFlight build w
 changed. No payment, real recovery message or live subscription was created.
 This is an implementation/rehearsal branch, not a general-release announcement.
 
+## Paid-service storage scope
+
+Decision, 2026-11-09: the paid service includes managed photo storage. Focus launch
+work on the existing private object-storage architecture, configurable included
+allowances, quotas, delivery costs, backups and retention. Actual prices and
+allowances have not been selected. Personal Dropbox/Drive/OneDrive storage
+integrations and dedicated TV apps are deferred; neither is required for launch.
+Customers can continue using the web display without external TV storage.
+
 ## Implemented
 
 One SwiftUI app offers a configured hosted service or an explicitly entered

@@ -71,6 +71,20 @@ private struct FrameWebView: UIViewRepresentable {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = session.websiteData
         configuration.allowsInlineMediaPlayback = true
+        if login {
+            // Older servers leave MFA inputs at the browser's small default font.
+            // iOS zooms those fields on focus and can pan the Verify button away.
+            // Keep user pinch zoom available while preventing automatic form zoom.
+            configuration.userContentController.addUserScript(WKUserScript(source: """
+                (() => {
+                    for (const field of document.querySelectorAll('input, select, textarea')) {
+                        field.style.setProperty('font-size', '16px', 'important');
+                        field.style.maxWidth = '100%';
+                        field.style.boxSizing = 'border-box';
+                    }
+                })();
+                """, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        }
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator

@@ -38,6 +38,16 @@ Export requires an Apple Distribution signing identity and App Store provisionin
 profile, or automatic signing access that can obtain them. A successful
 development-signed archive alone does not establish distribution readiness.
 
+If command-line automatic signing reports `No Accounts` despite an account in
+Xcode Settings, use Organizer with that account, or export with a private manual
+options file. For manual export, set `signingStyle` to `manual`, `teamID` to the
+developer team, `signingCertificate` to `Apple Distribution`, and
+`provisioningProfiles` to a dictionary mapping the app's bundle ID to its App Store
+profile UUID. Install the matching certificate/private key in Keychain and the
+profile under `~/Library/Developer/Xcode/UserData/Provisioning Profiles/`.
+Keep this machine-specific options file outside the repository. Do not revoke
+existing certificates to resolve a local signing problem.
+
 The export options preserve the specified version/build number and mark the
 build internal-only. Upload the exported IPA using Apple's Transporter, or use
 Xcode Organizer's TestFlight Internal Only distribution workflow. For an

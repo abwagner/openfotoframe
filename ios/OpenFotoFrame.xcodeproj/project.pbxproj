@@ -7,13 +7,26 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		03DE68D2A6D46A5D484242BB /* LiveSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7E92CBB64015C67FDBFB2AE /* LiveSessionTests.swift */; };
 		1007C353F82075923BD29417 /* HostedRegistrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FB2B303601CE62A0F6B9806 /* HostedRegistrationView.swift */; };
+		13D6D6ED66EE680C32C45E35 /* DeletedPhotosView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F5D78EAC0164533F681B9A /* DeletedPhotosView.swift */; };
 		1AB40B34EB2C44C3B8306FDC /* DisplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 324AD40EED2FB2630AA4C174 /* DisplayView.swift */; };
+		1CCCE0E1C3B362A4658714E1 /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20BF3971F46E7C6C265ED66F /* AppConfiguration.swift */; };
 		217FD89ABD4C84BC6A8205D4 /* ConnectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E83E4A64CBEA0747D2613719 /* ConnectionTests.swift */; };
+		237621A0100ED6B5F17E1635 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EA97278B577A41EB28BA38A /* SettingsView.swift */; };
+		28ED6832D70FFFB812022431 /* OpenFotoFrameApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9516B94A845A2D3B568CC099 /* OpenFotoFrameApp.swift */; };
 		2A6F9E9DE109ACC3E1664C63 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EA97278B577A41EB28BA38A /* SettingsView.swift */; };
+		30F2AD7E1A0F51BC42EF9CE2 /* FrameSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D186D282F79C0C366B2BF461 /* FrameSession.swift */; };
+		317D9FAB268E23ABB9B73569 /* StoreKitPurchases.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEAA7397DB37C5D28BC379FE /* StoreKitPurchases.swift */; };
+		319E5E1BF8E64381FB129718 /* GalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7002729A3BE6D2832862B1 /* GalleryView.swift */; };
+		3483B396B0D967DF557DC2CE /* HouseholdStorageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B5921F843AC7E8EA219374D /* HouseholdStorageView.swift */; };
+		35893FB5476A298925380D3B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 42FD9CD5E0A1633425A77BF5 /* PrivacyInfo.xcprivacy */; };
 		367414247C55BB77B51F34D8 /* OpenFotoFrameUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BFF435A93E8E4996BB0545E /* OpenFotoFrameUITests.swift */; };
+		3696EEF3B2891DB4E3FBECD4 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B66FDD8DEA016F4F71FEBB1F /* Models.swift */; };
 		3AD543318BF70011FB65A2D2 /* MatPhotoPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B3DC0C40D3FA7AA6DC6646 /* MatPhotoPreview.swift */; };
 		40F0C381A1CF67BE3ACA5640 /* MatPreviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 237C8224D9B8791C2522F032 /* MatPreviewTests.swift */; };
+		4109AFE182115973B4DF2C15 /* ConnectionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1AEFB35D518147BECA1729C /* ConnectionModels.swift */; };
+		482AE9890AA9B9D51FFD50C6 /* UploadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 084A07C05F74FE77DB281E87 /* UploadView.swift */; };
 		499583863D0D6B21B73A3BF7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 715F37CDEC9189B96D5EF3BF /* Assets.xcassets */; };
 		49C77D98A4F47C296C015DCD /* PhotoDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14EE856D53254DCE08663FEC /* PhotoDetailView.swift */; };
 		522EE4EB8DE46078971A733F /* InvitationPairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BE9FF8A3C517BC173833FB5 /* InvitationPairingView.swift */; };
@@ -21,19 +34,36 @@
 		5F4A6AE8E036420CFE42AA5A /* mat-colors.json in Resources */ = {isa = PBXBuildFile; fileRef = 7CDD42923C98F4E18B8050FF /* mat-colors.json */; };
 		64F64FA0D4A816E6968EE58E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 42FD9CD5E0A1633425A77BF5 /* PrivacyInfo.xcprivacy */; };
 		681B98F99233EE55A0480144 /* FrameSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D186D282F79C0C366B2BF461 /* FrameSession.swift */; };
+		6C43BAB97F046D8A21264F01 /* OpenFotoFrameUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BFF435A93E8E4996BB0545E /* OpenFotoFrameUITests.swift */; };
 		6CBA709376CE2436776C4BAC /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B66FDD8DEA016F4F71FEBB1F /* Models.swift */; };
+		6DA0DEB423E2FE7CACF0B308 /* BrowserAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26AD95182322990E6AF7B7A9 /* BrowserAuthorization.swift */; };
 		6DEE776E4854ABC7A26BCE4D /* FrameTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F24260311BC3BFE957B3DE4 /* FrameTests.swift */; };
 		7498BD55A85D6062AC03A45A /* ReleaseSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1688BEBDA8AE8CD9943C25CD /* ReleaseSession.swift */; };
+		808D404F96CD7762DE76B6F7 /* MatColorPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96B3814A2E491199339795EB /* MatColorPicker.swift */; };
+		87F30D4962AFC95EB02A53D2 /* FrameWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E698593CC613A68C72AD1B5E /* FrameWebView.swift */; };
+		895816741B408F3FF3783D11 /* MatPreviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 237C8224D9B8791C2522F032 /* MatPreviewTests.swift */; };
+		8BBF7F9E0246507433E9AE17 /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20BF3971F46E7C6C265ED66F /* AppConfiguration.swift */; };
+		8C3CC636E73377FC3FE01BC1 /* DisplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 324AD40EED2FB2630AA4C174 /* DisplayView.swift */; };
 		8EB6ECD8161CDADA75B068A9 /* GalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7002729A3BE6D2832862B1 /* GalleryView.swift */; };
 		9473CF9B2CB5D0FE4BA46638 /* HouseholdStorageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B5921F843AC7E8EA219374D /* HouseholdStorageView.swift */; };
 		9D5DDE9486CF92BA437293DB /* MatColorPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96B3814A2E491199339795EB /* MatColorPicker.swift */; };
+		9E235A1D918147069FF8691E /* ReleaseSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1688BEBDA8AE8CD9943C25CD /* ReleaseSession.swift */; };
+		AC13063FE35ACF7FE7B72C31 /* mat-colors.json in Resources */ = {isa = PBXBuildFile; fileRef = 7CDD42923C98F4E18B8050FF /* mat-colors.json */; };
 		AD808CCD8D0E4A2CC57FA4CB /* DeletedPhotosView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F5D78EAC0164533F681B9A /* DeletedPhotosView.swift */; };
 		B2E480C195656C6FD27339C8 /* StoreKitPurchases.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEAA7397DB37C5D28BC379FE /* StoreKitPurchases.swift */; };
 		B56FBAB44F9BB81CC0A6FA1B /* ReleaseOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4819A058BAA738305142849 /* ReleaseOnboardingView.swift */; };
+		BD005F354122BD5841E1888F /* MatPhotoPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B3DC0C40D3FA7AA6DC6646 /* MatPhotoPreview.swift */; };
+		C290DB52050B0955843A192B /* FrameTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F24260311BC3BFE957B3DE4 /* FrameTests.swift */; };
 		C99CD7508A59DC0E6A3B0BB0 /* BrowserAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26AD95182322990E6AF7B7A9 /* BrowserAuthorization.swift */; };
+		CA40DE3CCD0E1DA786715210 /* ReleaseOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4819A058BAA738305142849 /* ReleaseOnboardingView.swift */; };
+		CB05C2AF2DD681AC2B284451 /* PhotoDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14EE856D53254DCE08663FEC /* PhotoDetailView.swift */; };
+		CB1BF5021719AFC48A39AE94 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 715F37CDEC9189B96D5EF3BF /* Assets.xcassets */; };
 		D477A919605363DB167518D2 /* ConnectionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1AEFB35D518147BECA1729C /* ConnectionModels.swift */; };
+		DDAED1505698EA26D9F79633 /* ConnectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E83E4A64CBEA0747D2613719 /* ConnectionTests.swift */; };
 		DF028A1F558265C567E56144 /* FrameWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E698593CC613A68C72AD1B5E /* FrameWebView.swift */; };
+		E186BB4B0B5B6CE74128369A /* InvitationPairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BE9FF8A3C517BC173833FB5 /* InvitationPairingView.swift */; };
 		E3A19A6E62F3B8F48BCF9848 /* LiveSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7E92CBB64015C67FDBFB2AE /* LiveSessionTests.swift */; };
+		E933756AD892FAE37FDC1F09 /* HostedRegistrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FB2B303601CE62A0F6B9806 /* HostedRegistrationView.swift */; };
 		FB5FCAD40AD88D12AF3F6CC0 /* UploadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 084A07C05F74FE77DB281E87 /* UploadView.swift */; };
 /* End PBXBuildFile section */
 
@@ -44,6 +74,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = 3370318CEAA901C12CB437A3;
 			remoteInfo = OpenFotoFrame;
+		};
+		6896F141279371B17283121A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23AF1005BBA51D6DE9D458FA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2C97C08071B209A70D892F3C;
+			remoteInfo = OpenFotoFrameDev;
+		};
+		97490D31BB19F9C0570C29A3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23AF1005BBA51D6DE9D458FA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2C97C08071B209A70D892F3C;
+			remoteInfo = OpenFotoFrameDev;
 		};
 		C988ABAB817B45A1A6A0310A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -58,9 +102,12 @@
 		084A07C05F74FE77DB281E87 /* UploadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadView.swift; sourceTree = "<group>"; };
 		14EE856D53254DCE08663FEC /* PhotoDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoDetailView.swift; sourceTree = "<group>"; };
 		1688BEBDA8AE8CD9943C25CD /* ReleaseSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseSession.swift; sourceTree = "<group>"; };
+		1FA705CCFEE450BAB03D6914 /* OpenFotoFrameDevTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OpenFotoFrameDevTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		20BF3971F46E7C6C265ED66F /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
 		237C8224D9B8791C2522F032 /* MatPreviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatPreviewTests.swift; sourceTree = "<group>"; };
 		26AD95182322990E6AF7B7A9 /* BrowserAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserAuthorization.swift; sourceTree = "<group>"; };
 		324AD40EED2FB2630AA4C174 /* DisplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayView.swift; sourceTree = "<group>"; };
+		3300EBB18C21F6874215ED82 /* OpenFotoFrameDev.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OpenFotoFrameDev.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		42FD9CD5E0A1633425A77BF5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		5B5921F843AC7E8EA219374D /* HouseholdStorageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HouseholdStorageView.swift; sourceTree = "<group>"; };
 		5BE9FF8A3C517BC173833FB5 /* InvitationPairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvitationPairingView.swift; sourceTree = "<group>"; };
@@ -70,6 +117,8 @@
 		715F37CDEC9189B96D5EF3BF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7CDD42923C98F4E18B8050FF /* mat-colors.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "mat-colors.json"; sourceTree = "<group>"; };
 		7EA97278B577A41EB28BA38A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		8158B6340FE9C166976EABF0 /* Dev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Dev.xcconfig; sourceTree = "<group>"; };
+		8C1BB88FEF6812489E28C247 /* OpenFotoFrameDevUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OpenFotoFrameDevUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8F24260311BC3BFE957B3DE4 /* FrameTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameTests.swift; sourceTree = "<group>"; };
 		9516B94A845A2D3B568CC099 /* OpenFotoFrameApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenFotoFrameApp.swift; sourceTree = "<group>"; };
 		95AFF350768E7844166D5536 /* OpenFotoFrame.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OpenFotoFrame.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -94,6 +143,7 @@
 		29DF746C84CA9E1A1EE8815F /* OpenFotoFrame */ = {
 			isa = PBXGroup;
 			children = (
+				20BF3971F46E7C6C265ED66F /* AppConfiguration.swift */,
 				715F37CDEC9189B96D5EF3BF /* Assets.xcassets */,
 				26AD95182322990E6AF7B7A9 /* BrowserAuthorization.swift */,
 				E1AEFB35D518147BECA1729C /* ConnectionModels.swift */,
@@ -144,6 +194,7 @@
 		8484FFE07EB156B1190F6754 /* ios */ = {
 			isa = PBXGroup;
 			children = (
+				8158B6340FE9C166976EABF0 /* Dev.xcconfig */,
 				C4D435B6B8CEEB249FEF9204 /* Signing.xcconfig */,
 			);
 			name = ios;
@@ -154,6 +205,9 @@
 			isa = PBXGroup;
 			children = (
 				95AFF350768E7844166D5536 /* OpenFotoFrame.app */,
+				3300EBB18C21F6874215ED82 /* OpenFotoFrameDev.app */,
+				1FA705CCFEE450BAB03D6914 /* OpenFotoFrameDevTests.xctest */,
+				8C1BB88FEF6812489E28C247 /* OpenFotoFrameDevUITests.xctest */,
 				6D87CD372311A7619DF9FD46 /* OpenFotoFrameTests.xctest */,
 				9CBCD7C16119E60EE7F3EF5F /* OpenFotoFrameUITests.xctest */,
 			);
@@ -183,6 +237,42 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		1CE98E749DBF3FA510A228F5 /* OpenFotoFrameDevTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1201FFA1A90B50D1DABD1421 /* Build configuration list for PBXNativeTarget "OpenFotoFrameDevTests" */;
+			buildPhases = (
+				3D229C1C0D23DEEF9B3565E5 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1B47E302D8B3BAEBCD335F86 /* PBXTargetDependency */,
+			);
+			name = OpenFotoFrameDevTests;
+			packageProductDependencies = (
+			);
+			productName = OpenFotoFrameDevTests;
+			productReference = 1FA705CCFEE450BAB03D6914 /* OpenFotoFrameDevTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		2C97C08071B209A70D892F3C /* OpenFotoFrameDev */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4F1210AC6AB060AC9508B906 /* Build configuration list for PBXNativeTarget "OpenFotoFrameDev" */;
+			buildPhases = (
+				1C323C3FCA6E643642736E06 /* Sources */,
+				8549CE526B7D0809CD67DC62 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OpenFotoFrameDev;
+			packageProductDependencies = (
+			);
+			productName = OpenFotoFrameDev;
+			productReference = 3300EBB18C21F6874215ED82 /* OpenFotoFrameDev.app */;
+			productType = "com.apple.product-type.application";
+		};
 		3370318CEAA901C12CB437A3 /* OpenFotoFrame */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = EDAF983550C460DDCFEBCD95 /* Build configuration list for PBXNativeTarget "OpenFotoFrame" */;
@@ -237,6 +327,24 @@
 			productReference = 6D87CD372311A7619DF9FD46 /* OpenFotoFrameTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		E5783D82204E08A25D42E577 /* OpenFotoFrameDevUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 68EE5188C72E3946BA334F70 /* Build configuration list for PBXNativeTarget "OpenFotoFrameDevUITests" */;
+			buildPhases = (
+				5A8820DC14E140834B091639 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0C7689C46E9286304ECB31A8 /* PBXTargetDependency */,
+			);
+			name = OpenFotoFrameDevUITests;
+			packageProductDependencies = (
+			);
+			productName = OpenFotoFrameDevUITests;
+			productReference = 8C1BB88FEF6812489E28C247 /* OpenFotoFrameDevUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -246,11 +354,17 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					2C97C08071B209A70D892F3C = {
+						DevelopmentTeam = "$(OPENFOTOFRAME_DEVELOPMENT_TEAM)";
+					};
 					3370318CEAA901C12CB437A3 = {
 						DevelopmentTeam = "$(OPENFOTOFRAME_DEVELOPMENT_TEAM)";
 					};
 					877BEA4D3E63576B4C498AEB = {
 						TestTargetID = 3370318CEAA901C12CB437A3;
+					};
+					E5783D82204E08A25D42E577 = {
+						TestTargetID = 2C97C08071B209A70D892F3C;
 					};
 				};
 			};
@@ -269,6 +383,9 @@
 			projectRoot = "";
 			targets = (
 				3370318CEAA901C12CB437A3 /* OpenFotoFrame */,
+				2C97C08071B209A70D892F3C /* OpenFotoFrameDev */,
+				1CE98E749DBF3FA510A228F5 /* OpenFotoFrameDevTests */,
+				E5783D82204E08A25D42E577 /* OpenFotoFrameDevUITests */,
 				D8FE6CD2A2048F062A05D56C /* OpenFotoFrameTests */,
 				877BEA4D3E63576B4C498AEB /* OpenFotoFrameUITests */,
 			);
@@ -286,6 +403,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		8549CE526B7D0809CD67DC62 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CB1BF5021719AFC48A39AE94 /* Assets.xcassets in Resources */,
+				35893FB5476A298925380D3B /* PrivacyInfo.xcprivacy in Resources */,
+				AC13063FE35ACF7FE7B72C31 /* mat-colors.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -293,6 +420,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8BBF7F9E0246507433E9AE17 /* AppConfiguration.swift in Sources */,
 				C99CD7508A59DC0E6A3B0BB0 /* BrowserAuthorization.swift in Sources */,
 				D477A919605363DB167518D2 /* ConnectionModels.swift in Sources */,
 				AD808CCD8D0E4A2CC57FA4CB /* DeletedPhotosView.swift in Sources */,
@@ -316,6 +444,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1C323C3FCA6E643642736E06 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CCCE0E1C3B362A4658714E1 /* AppConfiguration.swift in Sources */,
+				6DA0DEB423E2FE7CACF0B308 /* BrowserAuthorization.swift in Sources */,
+				4109AFE182115973B4DF2C15 /* ConnectionModels.swift in Sources */,
+				13D6D6ED66EE680C32C45E35 /* DeletedPhotosView.swift in Sources */,
+				8C3CC636E73377FC3FE01BC1 /* DisplayView.swift in Sources */,
+				30F2AD7E1A0F51BC42EF9CE2 /* FrameSession.swift in Sources */,
+				87F30D4962AFC95EB02A53D2 /* FrameWebView.swift in Sources */,
+				319E5E1BF8E64381FB129718 /* GalleryView.swift in Sources */,
+				E933756AD892FAE37FDC1F09 /* HostedRegistrationView.swift in Sources */,
+				3483B396B0D967DF557DC2CE /* HouseholdStorageView.swift in Sources */,
+				E186BB4B0B5B6CE74128369A /* InvitationPairingView.swift in Sources */,
+				808D404F96CD7762DE76B6F7 /* MatColorPicker.swift in Sources */,
+				BD005F354122BD5841E1888F /* MatPhotoPreview.swift in Sources */,
+				3696EEF3B2891DB4E3FBECD4 /* Models.swift in Sources */,
+				28ED6832D70FFFB812022431 /* OpenFotoFrameApp.swift in Sources */,
+				CB05C2AF2DD681AC2B284451 /* PhotoDetailView.swift in Sources */,
+				CA40DE3CCD0E1DA786715210 /* ReleaseOnboardingView.swift in Sources */,
+				9E235A1D918147069FF8691E /* ReleaseSession.swift in Sources */,
+				237621A0100ED6B5F17E1635 /* SettingsView.swift in Sources */,
+				317D9FAB268E23ABB9B73569 /* StoreKitPurchases.swift in Sources */,
+				482AE9890AA9B9D51FFD50C6 /* UploadView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		266D34EAF72CA0733F9AE81E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -324,6 +480,25 @@
 				6DEE776E4854ABC7A26BCE4D /* FrameTests.swift in Sources */,
 				E3A19A6E62F3B8F48BCF9848 /* LiveSessionTests.swift in Sources */,
 				40F0C381A1CF67BE3ACA5640 /* MatPreviewTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3D229C1C0D23DEEF9B3565E5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DDAED1505698EA26D9F79633 /* ConnectionTests.swift in Sources */,
+				C290DB52050B0955843A192B /* FrameTests.swift in Sources */,
+				03DE68D2A6D46A5D484242BB /* LiveSessionTests.swift in Sources */,
+				895816741B408F3FF3783D11 /* MatPreviewTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5A8820DC14E140834B091639 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6C43BAB97F046D8A21264F01 /* OpenFotoFrameUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -338,6 +513,16 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		0C7689C46E9286304ECB31A8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2C97C08071B209A70D892F3C /* OpenFotoFrameDev */;
+			targetProxy = 6896F141279371B17283121A /* PBXContainerItemProxy */;
+		};
+		1B47E302D8B3BAEBCD335F86 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2C97C08071B209A70D892F3C /* OpenFotoFrameDev */;
+			targetProxy = 97490D31BB19F9C0570C29A3 /* PBXContainerItemProxy */;
+		};
 		6B866EE56860E3113330A96B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3370318CEAA901C12CB437A3 /* OpenFotoFrame */;
@@ -351,6 +536,52 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		062CC42A35497047212C5F6D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8158B6340FE9C166976EABF0 /* Dev.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "$(OPENFOTOFRAME_DEVELOPMENT_TEAM)";
+				FRAME_APP_DISPLAY_NAME = "OpenFotoFrame Dev";
+				FRAME_APP_URL_SCHEME = "openfotoframe-dev";
+				FRAME_BUILD_ENVIRONMENT = development;
+				INFOPLIST_FILE = OpenFotoFrame/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = tech.swagner.openfotoframe.dev;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		1581EC9F53B013051D438F02 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8158B6340FE9C166976EABF0 /* Dev.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "$(OPENFOTOFRAME_DEVELOPMENT_TEAM)";
+				FRAME_APP_DISPLAY_NAME = "OpenFotoFrame Dev";
+				FRAME_APP_URL_SCHEME = "openfotoframe-dev";
+				FRAME_BUILD_ENVIRONMENT = development;
+				INFOPLIST_FILE = OpenFotoFrame/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = tech.swagner.openfotoframe.dev;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		2CEFCFD3AB3D88D8962D4485 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -365,6 +596,24 @@
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/OpenFotoFrame.app/OpenFotoFrame";
+			};
+			name = Debug;
+		};
+		4100F383947C74FFA2C1839E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = tech.swagner.OpenFotoFrameDevUITests;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEV_APP";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = OpenFotoFrameDev;
 			};
 			name = Debug;
 		};
@@ -422,9 +671,13 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				FRAME_APP_DISPLAY_NAME = OpenFotoFrame;
+				FRAME_APP_URL_SCHEME = openfotoframe;
+				FRAME_BUILD_ENVIRONMENT = production;
 				FRAME_HOSTED_SERVER_URL = "";
 				FRAME_INVITE_URL = "";
 				FRAME_PASSKEY_DOMAIN = "";
+				FRAME_SUGGESTED_SERVER_URL = "";
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -490,6 +743,42 @@
 			};
 			name = Release;
 		};
+		9F7DCFF16263F3037F469682 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = tech.swagner.OpenFotoFrameDevTests;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEV_APP";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/OpenFotoFrameDev.app/OpenFotoFrameDev";
+			};
+			name = Debug;
+		};
+		AAB8D0BAB80844A984CCEA14 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = tech.swagner.OpenFotoFrameDevUITests;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEV_APP";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = OpenFotoFrameDev;
+			};
+			name = Release;
+		};
 		AEEA33223B6B1C73E85A6B97 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C4D435B6B8CEEB249FEF9204 /* Signing.xcconfig */;
@@ -507,6 +796,24 @@
 				PRODUCT_BUNDLE_IDENTIFIER = tech.swagner.openfotoframe;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B72AE502C9EC866DB5FCB42A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = tech.swagner.OpenFotoFrameDevTests;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEV_APP";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/OpenFotoFrameDev.app/OpenFotoFrameDev";
 			};
 			name = Release;
 		};
@@ -547,9 +854,13 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAME_APP_DISPLAY_NAME = OpenFotoFrame;
+				FRAME_APP_URL_SCHEME = openfotoframe;
+				FRAME_BUILD_ENVIRONMENT = production;
 				FRAME_HOSTED_SERVER_URL = "";
 				FRAME_INVITE_URL = "";
 				FRAME_PASSKEY_DOMAIN = "";
+				FRAME_SUGGESTED_SERVER_URL = "";
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -591,6 +902,33 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		1201FFA1A90B50D1DABD1421 /* Build configuration list for PBXNativeTarget "OpenFotoFrameDevTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9F7DCFF16263F3037F469682 /* Debug */,
+				B72AE502C9EC866DB5FCB42A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		4F1210AC6AB060AC9508B906 /* Build configuration list for PBXNativeTarget "OpenFotoFrameDev" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				062CC42A35497047212C5F6D /* Debug */,
+				1581EC9F53B013051D438F02 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		68EE5188C72E3946BA334F70 /* Build configuration list for PBXNativeTarget "OpenFotoFrameDevUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4100F383947C74FFA2C1839E /* Debug */,
+				AAB8D0BAB80844A984CCEA14 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		7AD4FF37EB4DC59E1583ACE5 /* Build configuration list for PBXNativeTarget "OpenFotoFrameUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

@@ -272,3 +272,62 @@ Apple restore and unfinished-transaction retry read the selected existing househ
 Household owners and administrators can open **Connection & Access → Household Storage**, also linked from native Upload. The screen uses the administrative storage API and distinguishes current originals, retained deleted originals, included allowance and subscription inactivity. Partial collection members receive only generic upload-limit guidance; the client does not request hidden household totals for them. Self-hosted servers show measured use without claiming unlimited disk space.
 
 **Review Deleted Photos** opens the selected collection’s retained files. Restores remain quota-checked and ungrouped. Permanent removal requires an explicit confirmation and is queued on the server; failed requests may be explicitly retried. Storage remains consumed until background deletion succeeds. No purchase, upgrade or permanent deletion is started merely by visiting either screen.
+
+## Separate development app
+
+The generated project includes `OpenFotoFrameDev` alongside the original target.
+They use the same application code and hosting-choice screen, with separate app
+identities:
+
+| | Original | Development |
+| --- | --- | --- |
+| Home-screen name | OpenFotoFrame | OpenFotoFrame Dev |
+| Bundle ID | `tech.swagner.openfotoframe` | `tech.swagner.openfotoframe.dev` |
+| Custom URL scheme | `openfotoframe` | `openfotoframe-dev` |
+| Keychain service | Original bundle ID + `.device-sessions` | Dev bundle ID + `.device-sessions` |
+
+UserDefaults, app files and WebKit storage remain inside each app's own sandbox;
+no App Group or shared Keychain access group is configured. The development app
+shows a persistent Development banner. Installing it does not disconnect, migrate
+or replace the original app. The original scheme, bundle ID, display name,
+version/build number and callback scheme remain unchanged.
+
+Generate with `xcodegen generate` in `ios/`, then select `OpenFotoFrameDev`. The
+`OpenFotoFrameDevIntegration` scheme runs the shared tests against the disposable
+local backend fixture. Shared unit-test sources select the appropriate app module.
+
+`Dev.xcconfig` includes normal signing configuration and an optional **gitignored**
+`Dev.local.xcconfig`. Local settings can suggest a self-hosted test URL without
+connecting automatically:
+
+```xcconfig
+FRAME_SUGGESTED_SERVER_URL = https:/$()/frame-dev.example.com
+FRAME_INVITE_URL = https:/$()/frame-dev.example.com
+```
+
+The empty `$()` keeps `//` from becoming an xcconfig comment. Generic builds have
+no personal-server default. The first screen still offers both the paid service
+and an explicitly selected self-hosted server. The paid endpoint stays unavailable
+until a separate hosted staging service is configured; never use the self-hosted
+dev instance as the paid endpoint. A dev-only hosted URL can be configured in the
+same private xcconfig using `FRAME_HOSTED_SERVER_URL`.
+
+Browser sign-in also needs an explicit staging-server callback allowlist:
+
+```text
+AUTH_REDIRECT_URIS=["openfotoframe://auth/callback","openfotoframe-dev://auth/callback"]
+APP_LINK_SCHEME=openfotoframe-dev
+```
+
+The server accepts only supported app callback URIs. The web landing page uses the
+configured scheme after explicit destination confirmation. Keep these dev settings
+out of production: defaults remain the original callback/scheme. The Dev app can
+scan or paste a generic production-scheme setup payload, but does not register that
+scheme with iOS, so it cannot take over the original app's external links. Native
+PKCE validation rejects callbacks for the other app identity.
+
+Physical-device signing/provisioning and installation require explicit authorization.
+For a separate Dev TestFlight distribution, create a separate App Store Connect
+app record and its own signing/distribution setup; this target does not upload or
+create a second public store listing automatically. Apple subscription products
+and verification must match whichever app bundle is being tested.

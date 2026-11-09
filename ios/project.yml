@@ -11,6 +11,10 @@ settings:
     FRAME_PASSKEY_DOMAIN: ""
     FRAME_HOSTED_SERVER_URL: ""
     FRAME_INVITE_URL: ""
+    FRAME_BUILD_ENVIRONMENT: production
+    FRAME_APP_URL_SCHEME: openfotoframe
+    FRAME_APP_DISPLAY_NAME: OpenFotoFrame
+    FRAME_SUGGESTED_SERVER_URL: ""
 targets:
   OpenFotoFrame:
     type: application
@@ -30,6 +34,47 @@ targets:
         CURRENT_PROJECT_VERSION: "2"
         INFOPLIST_FILE: OpenFotoFrame/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  OpenFotoFrameDev:
+    type: application
+    platform: iOS
+    sources:
+      - path: OpenFotoFrame
+      - path: ../static/mat-colors.json
+        buildPhase: resources
+    configFiles:
+      Debug: Dev.xcconfig
+      Release: Dev.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: tech.swagner.openfotoframe.dev
+        DEVELOPMENT_TEAM: "$(OPENFOTOFRAME_DEVELOPMENT_TEAM)"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_FILE: OpenFotoFrame/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        FRAME_BUILD_ENVIRONMENT: development
+        FRAME_APP_URL_SCHEME: openfotoframe-dev
+        FRAME_APP_DISPLAY_NAME: OpenFotoFrame Dev
+  OpenFotoFrameDevTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [OpenFotoFrameTests]
+    dependencies:
+      - target: OpenFotoFrameDev
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: true
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEV_APP"
+  OpenFotoFrameDevUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [OpenFotoFrameUITests]
+    dependencies:
+      - target: OpenFotoFrameDev
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: true
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEV_APP"
   OpenFotoFrameTests:
     type: bundle.unit-test
     platform: iOS
@@ -80,5 +125,20 @@ schemes:
         OpenFotoFrame: all
     test:
       targets: [OpenFotoFrameTests, OpenFotoFrameUITests]
+      environmentVariables:
+        FRAME_TEST_RELEASE_SERVER: http://127.0.0.1:5081
+
+  OpenFotoFrameDev:
+    build:
+      targets:
+        OpenFotoFrameDev: all
+    test:
+      targets: [OpenFotoFrameDevTests, OpenFotoFrameDevUITests]
+  OpenFotoFrameDevIntegration:
+    build:
+      targets:
+        OpenFotoFrameDev: all
+    test:
+      targets: [OpenFotoFrameDevTests, OpenFotoFrameDevUITests]
       environmentVariables:
         FRAME_TEST_RELEASE_SERVER: http://127.0.0.1:5081

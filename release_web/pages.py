@@ -39,7 +39,10 @@ def check_csrf():
 
 @pages.app_context_processor
 def template_helpers():
-    return {"csrf_token": csrf}
+    return {
+        "csrf_token": csrf,
+        "app_scheme": current_app.config.get("APP_LINK_SCHEME", "openfotoframe"),
+    }
 
 
 def portal(template="portal.html", **context):
@@ -273,7 +276,10 @@ def authorize(request_id):
         )
         session.pop("release_pending_authorization", None)
         callback = result["redirect_uri"]
-        if not callback.startswith("openfotoframe://auth/callback?"):
+        allowed = current_app.config.get(
+            "AUTH_REDIRECT_URIS", ["openfotoframe://auth/callback"]
+        )
+        if "?" not in callback or callback.split("?", 1)[0] not in allowed:
             abort(500, description="The sign-in callback was invalid.")
         return redirect(callback, code=303)
     return portal("authorize.html", details=details, identity=identity, signed_in=True)

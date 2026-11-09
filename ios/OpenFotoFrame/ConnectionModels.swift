@@ -48,7 +48,8 @@ protocol CredentialVault {
 }
 
 struct KeychainCredentialVault: CredentialVault {
-    private let service = "tech.swagner.openfotoframe.device-sessions"
+    private let service: String
+    init(configuration: AppConfiguration = .current) { service = configuration.keychainService }
     private func query(_ key: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: key]
     }
@@ -168,7 +169,7 @@ struct ConnectionLink: Equatable, Identifiable {
         guard value.utf8.count <= 8192, let url = URL(string: value), let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               components.user == nil, components.password == nil else { throw FrameError.message("This setup code is not valid.") }
         guard components.query == nil else { throw FrameError.message("Setup details must be in the link fragment.") }
-        if components.scheme?.lowercased() == "openfotoframe" {
+        if ["openfotoframe", AppConfiguration.current.urlScheme].contains(components.scheme?.lowercased() ?? "") {
             guard components.host == "connect", components.path.isEmpty || components.path == "/" else { throw FrameError.message("This setup code is not valid.") }
         } else {
             guard components.scheme?.lowercased() == "https", let host = components.host?.lowercased(), permittedHTTPSHosts.contains(host),
@@ -197,7 +198,7 @@ struct ConnectionLink: Equatable, Identifiable {
         if let landingURL, landingURL.scheme == "https", landingURL.user == nil, landingURL.password == nil {
             parts = URLComponents(url: landingURL, resolvingAgainstBaseURL: false)!
             parts.path = "/connect"
-        } else { parts.scheme = "openfotoframe"; parts.host = "connect" }
+        } else { parts.scheme = AppConfiguration.current.urlScheme; parts.host = "connect" }
         parts.query = nil
         var fragment = URLComponents()
         fragment.queryItems = [URLQueryItem(name: "v", value: "1"), URLQueryItem(name: "purpose", value: purpose.rawValue), URLQueryItem(name: "mode", value: mode.rawValue), URLQueryItem(name: "server", value: server.origin)]

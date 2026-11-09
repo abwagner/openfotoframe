@@ -82,3 +82,26 @@ def test_provider_configuration_is_explicit_and_does_not_log_bad_secret_input():
 def test_security_flags_reject_typos_instead_of_silently_disabling(setting):
     with pytest.raises(ValueError):
         environment_config(config(**{setting: "tru"}))
+
+
+def test_dev_app_callbacks_require_explicit_bounded_configuration():
+    values = environment_config(config())
+    assert values["APP_LINK_SCHEME"] == "openfotoframe"
+    assert "AUTH_REDIRECT_URIS" not in values
+    values = environment_config(
+        config(
+            APP_LINK_SCHEME="openfotoframe-dev",
+            AUTH_REDIRECT_URIS='["openfotoframe-dev://auth/callback"]',
+        )
+    )
+    assert values["AUTH_REDIRECT_URIS"] == ["openfotoframe-dev://auth/callback"]
+    for raw in [
+        "[]",
+        '["https://foreign.example/callback"]',
+        '["openfotoframe-dev://other/callback"]',
+        "[true]",
+    ]:
+        with pytest.raises(ValueError):
+            environment_config(config(AUTH_REDIRECT_URIS=raw))
+    with pytest.raises(ValueError):
+        environment_config(config(APP_LINK_SCHEME="arbitrary-app"))

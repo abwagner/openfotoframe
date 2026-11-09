@@ -169,7 +169,7 @@ final class ReleaseSession: ObservableObject {
         do {
             let proof = try BrowserAuthorizationProof()
             struct Request: Decodable { let id: String; let authorizationUrl: String }
-            let request: Request = try await json("api/v1/auth/authorization-requests", method: "POST", body: ["code_challenge": proof.challenge, "redirect_uri": "openfotoframe://auth/callback", "state": proof.state, "device_name": UIDevice.current.name], authorized: false)
+            let request: Request = try await json("api/v1/auth/authorization-requests", method: "POST", body: ["code_challenge": proof.challenge, "redirect_uri": AppConfiguration.current.callbackURI, "state": proof.state, "device_name": UIDevice.current.name], authorized: false)
             guard context == generation, let url = URL(string: request.authorizationUrl), server.contains(url), url.scheme == "https", url.path == "/authorize/" + request.id, url.query == nil, url.fragment == nil else { throw FrameError.message("The server returned an invalid sign-in destination.") }
             let callback = try await browserAuthorization.open(url)
             guard context == generation else { throw CancellationError() }

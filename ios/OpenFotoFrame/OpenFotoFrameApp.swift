@@ -7,7 +7,13 @@ struct OpenFotoFrameApp: App {
     @StateObject private var purchases = StoreKitPurchases()
     var body: some Scene {
         WindowGroup {
-            RootView().environmentObject(session).environmentObject(connection).environmentObject(purchases).tint(.teal)
+            RootView().safeAreaInset(edge: .top, spacing: 0) {
+                if AppConfiguration.current.development {
+                    Text("OpenFotoFrame Dev · Development").font(.caption.bold())
+                        .frame(maxWidth: .infinity).padding(.vertical, 5)
+                        .background(.orange.opacity(0.18)).accessibilityIdentifier("developmentBuildLabel")
+                }
+            }.environmentObject(session).environmentObject(connection).environmentObject(purchases).tint(.teal)
         }
     }
 }

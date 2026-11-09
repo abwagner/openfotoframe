@@ -1,6 +1,10 @@
 import XCTest
 import SwiftUI
+#if DEV_APP
+@testable import OpenFotoFrameDev
+#else
 @testable import OpenFotoFrame
+#endif
 
 final class MatPreviewTests: XCTestCase {
     func testLitBevelUsesServerLightingAndSupportsOlderServers() throws {

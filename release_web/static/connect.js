@@ -43,6 +43,8 @@
             document.getElementById('transport').textContent = 'This local server uses unencrypted HTTP. Continue only on a network you trust; HTTPS is recommended.';
         }
         const open = document.getElementById('open-app');
+        const scheme = open.dataset?.appScheme || 'openfotoframe';
+        if (!['openfotoframe', 'openfotoframe-dev'].includes(scheme)) throw new Error('This application link is not supported.');
         const confirmation = document.getElementById('confirm-destination');
         const form = document.getElementById('browser-form');
         if (purpose === 'invite') {
@@ -62,7 +64,7 @@
         }
         confirmation.addEventListener('change', () => {
             open.setAttribute('aria-disabled', String(!confirmation.checked));
-            if (confirmation.checked) open.href = 'openfotoframe://connect#' + params.toString();
+            if (confirmation.checked) open.href = scheme + '://connect#' + params.toString();
             else open.removeAttribute('href');
             document.getElementById('continue-browser').disabled = !confirmation.checked;
         });

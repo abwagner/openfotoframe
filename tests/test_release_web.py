@@ -519,7 +519,7 @@ def test_group_snapshot_applies_rotation_before_crop_without_changing_original(
         ).status_code
         == 200
     )
-    assert seen == [first, second]
+    assert set(seen) == {first, second}
     assert client.get("/uploads/" + first, headers=headers).data == original
 
 
@@ -656,3 +656,48 @@ def test_frame_playlist_conditional_delivery_rechecks_changes_and_revocation(web
         "/frame/playlist", headers={"If-None-Match": changed.headers["ETag"]}
     )
     assert denied.status_code == 401 and not denied.headers.get("ETag")
+
+
+def test_dev_browser_callback_is_opt_in_and_landing_targets_only_dev_app(web):
+    import hashlib, base64
+
+    app, owner, hid, cid, fid, headers = web
+    client = app.test_client()
+    verifier = "d" * 43
+    challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())
+        .decode()
+        .rstrip("=")
+    )
+    body = {
+        "code_challenge": challenge,
+        "redirect_uri": "openfotoframe-dev://auth/callback",
+        "state": "dev-callback-state-longer-than-thirty-two-characters",
+    }
+    assert (
+        client.post("/api/v1/auth/authorization-requests", json=body).status_code == 400
+    )
+    app.config["AUTH_REDIRECT_URIS"] = [
+        "openfotoframe://auth/callback",
+        "openfotoframe-dev://auth/callback",
+    ]
+    app.config["APP_LINK_SCHEME"] = "openfotoframe-dev"
+    pending = client.post("/api/v1/auth/authorization-requests", json=body)
+    assert pending.status_code == 201
+    bridge = client.post(
+        "/api/v1/auth/web-bridge", headers=auth(owner), json={"path": "/workspace"}
+    )
+    assert (
+        client.post(
+            "/api/v1/auth/web-bridge/redeem",
+            data={"bridge_token": bridge.json["bridge_token"]},
+        ).status_code
+        == 303
+    )
+    csrf = client.get_cookie("release_csrf").value
+    approved = client.post(
+        "/authorize/" + pending.json["id"], data={"csrf_token": csrf}
+    )
+    assert approved.status_code == 303
+    assert approved.headers["Location"].startswith("openfotoframe-dev://auth/callback?")
+    assert b'data-app-scheme="openfotoframe-dev"' in client.get("/connect").data

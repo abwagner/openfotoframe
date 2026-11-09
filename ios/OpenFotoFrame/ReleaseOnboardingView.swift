@@ -75,7 +75,7 @@ private struct ConnectionChoiceView: View {
     @EnvironmentObject private var connection: ReleaseSession
     @EnvironmentObject private var session: FrameSession
     @State private var mode: HostingMode?
-    @State private var address = ""
+    @State private var address = AppConfiguration.current.suggestedServer
     @State private var scanning = false
     @State private var importing = false
     @State private var importText = ""
@@ -88,7 +88,7 @@ private struct ConnectionChoiceView: View {
                 Section {
                     Image(systemName: "photo.artframe").font(.system(size: 54, weight: .light)).foregroundStyle(.teal).frame(maxWidth: .infinity).padding()
                     Text("Your photos. Your choice.").font(.title.bold())
-                    Text("Use OpenFotoFrame Cloud, or connect to a server you manage.").foregroundStyle(.secondary)
+                    Text("Choose the paid service with included photo storage, or connect to a server you manage.").foregroundStyle(.secondary)
                 }
                 Section("Get Started") {
                     Button { mode = .hosted } label: { Label("OpenFotoFrame Cloud", systemImage: "cloud") }
@@ -108,9 +108,16 @@ private struct ConnectionChoiceView: View {
                                 Text("The hosted service is not available in this build yet. You can connect to your own server or use an invitation.").foregroundStyle(.secondary)
                             }
                         } else {
-                            TextField("https://frame.example.com", text: $address)
-                                .textContentType(.URL).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
-                                .accessibilityIdentifier("releaseServerAddress")
+                            HStack {
+                                TextField("https://frame.example.com", text: $address)
+                                    .textContentType(.URL).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                                    .accessibilityIdentifier("releaseServerAddress")
+                                if !address.isEmpty {
+                                    Button { address = "" } label: { Image(systemName: "xmark.circle.fill") }
+                                        .buttonStyle(.borderless).foregroundStyle(.secondary)
+                                        .accessibilityLabel("Clear server address").accessibilityIdentifier("clearReleaseServerAddress")
+                                }
+                            }
                             Button("Continue") { connect(address) }.disabled(address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                             Text("Enter the server root address. If it cannot be reached, you can retry or edit the address.").font(.footnote).foregroundStyle(.secondary)
                         }

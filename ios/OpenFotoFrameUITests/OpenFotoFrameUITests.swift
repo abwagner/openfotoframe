@@ -5,13 +5,15 @@ final class OpenFotoFrameUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
         XCTAssertTrue(app.buttons["chooseHostedService"].waitForExistence(timeout: 10))
+        #if DEV_APP
+        XCTAssertTrue(app.staticTexts["developmentBuildLabel"].exists)
+        #endif
         XCTAssertTrue(app.buttons["chooseSelfHosted"].exists)
         XCTAssertFalse(app.textFields["releaseServerAddress"].exists)
         app.buttons["chooseSelfHosted"].tap()
         let address = app.textFields["releaseServerAddress"]
         XCTAssertTrue(address.waitForExistence(timeout: 5))
-        address.tap()
-        address.typeText("http://192.168.1.2")
+        replaceAddress(address, with: "http://192.168.1.2")
         app.buttons["Continue"].tap()
         XCTAssertTrue(app.buttons["Continue with Local HTTP"].waitForExistence(timeout: 5))
         // Confirmation has not been accepted, so no request is sent.
@@ -25,7 +27,7 @@ final class OpenFotoFrameUITests: XCTestCase {
         XCTAssertTrue(app.buttons["chooseSelfHosted"].waitForExistence(timeout: 10))
         app.buttons["chooseSelfHosted"].tap()
         let address = app.textFields["releaseServerAddress"]
-        address.tap(); address.typeText(server)
+        replaceAddress(address, with: server)
         app.buttons["Continue"].tap()
         if server.hasPrefix("http:") { app.buttons["Continue with Local HTTP"].tap() }
         let email = app.textFields["releaseEmail"]
@@ -241,6 +243,13 @@ final class OpenFotoFrameUITests: XCTestCase {
         XCTAssertTrue(app.webViews.buttons["Login"].waitForExistence(timeout: 15))
         XCTAssertFalse(app.tabBars.buttons["Photos"].exists)
         XCTAssertFalse(app.alerts["OpenFotoFrame"].exists)
+    }
+
+    private func replaceAddress(_ field: XCUIElement, with value: String) {
+        let clear = XCUIApplication().buttons["clearReleaseServerAddress"]
+        if clear.exists { clear.tap() }
+        field.tap()
+        field.typeText(value)
     }
 
     private func connect(_ app: XCUIApplication, server: String, username: String, password: String) {

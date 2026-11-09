@@ -53,3 +53,27 @@ Publishing source to a remote with a public mirror requires review and approval
 of the exact content/destination. A private source-artifact deployment does not
 require pushing or merging a production branch first. The existing main-branch
 production deploy workflow remains unchanged.
+
+## Separate iOS client
+
+Use the `OpenFotoFrameDev` scheme and `tech.swagner.openfotoframe.dev` app identity
+for this environment. It installs alongside the current app, with a separate URL
+scheme, saved profiles and credential namespace. Do not disconnect the existing
+app just to test the empty dev library. Configure a suggested server only in the
+private `ios/Dev.local.xcconfig`, never as a public production default. See
+[iOS development app setup](../ios/README.md#separate-development-app).
+
+When enabling system-browser sign-in for the Dev app, explicitly allow
+`openfotoframe-dev://auth/callback` in the dev server's `AUTH_REDIRECT_URIS` JSON
+array, and set `APP_LINK_SCHEME=openfotoframe-dev` for dev web setup links. The
+production callback remains unchanged unless its own operator deliberately
+configures otherwise. No existing user credentials or photos are migrated by
+adding this callback.
+
+Local validation of the separate app target: original and Dev targets each passed
+31 native tests with one optional legacy integration test skipped. Two Dev UI
+tests passed against the disposable fixture, including editable server suggestion,
+Development labeling, native login and advanced crop editing. The simulator has
+both app IDs installed with distinct data containers. Callback/config/browser
+security checks passed (39 Python and 27 Node cases). This is not evidence of a
+physical-device install or a new TestFlight upload; those require their own steps.

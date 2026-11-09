@@ -16,8 +16,8 @@ struct BrowserAuthorizationProof {
         verifier = try random(); state = try random()
         challenge = Data(SHA256.hash(data: Data(verifier.utf8))).base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
     }
-    func code(from url: URL, issuer: String) throws -> String {
-        guard url.scheme == "openfotoframe", url.host == "auth", url.path == "/callback", url.fragment == nil,
+    func code(from url: URL, issuer: String, scheme: String = AppConfiguration.current.urlScheme) throws -> String {
+        guard url.scheme == scheme, url.host == "auth", url.path == "/callback", url.fragment == nil,
               let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
               Set(items.map(\.name)) == ["code", "state", "iss"], items.count == 3 else { throw FrameError.message("The sign-in callback is invalid.") }
         let values = Dictionary(uniqueKeysWithValues: items.compactMap { item in item.value.map { (item.name, $0) } })
@@ -32,7 +32,7 @@ final class BrowserAuthorization: NSObject, ASWebAuthenticationPresentationConte
     func open(_ url: URL) async throws -> URL {
         try await withTaskCancellationHandler(operation: {
             try await withCheckedThrowingContinuation { continuation in
-                let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "openfotoframe") { [weak self] url, error in
+                let session = ASWebAuthenticationSession(url: url, callbackURLScheme: AppConfiguration.current.urlScheme) { [weak self] url, error in
                     Task { @MainActor in self?.session = nil }
                     if let url { continuation.resume(returning: url) }
                     else { continuation.resume(throwing: error ?? CancellationError()) }

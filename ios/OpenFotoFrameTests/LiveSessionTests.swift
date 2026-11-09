@@ -1,6 +1,10 @@
 import XCTest
 import WebKit
+#if DEV_APP
+@testable import OpenFotoFrameDev
+#else
 @testable import OpenFotoFrame
+#endif
 
 final class LiveSessionTests: XCTestCase {
     @MainActor

@@ -1,0 +1,3 @@
+// Dev signing and private endpoints are local configuration, never production defaults.
+#include "Signing.xcconfig"
+#include? "Dev.local.xcconfig"

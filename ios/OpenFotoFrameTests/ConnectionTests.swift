@@ -1,8 +1,43 @@
 import XCTest
 import WebKit
+#if DEV_APP
+@testable import OpenFotoFrameDev
+#else
 @testable import OpenFotoFrame
+#endif
 
 final class ConnectionTests: XCTestCase {
+    func testDevelopmentIdentityAndCallbackIsolation() throws {
+        let production = AppConfiguration(bundleIdentifier: "tech.swagner.openfotoframe", info: ["FrameBuildEnvironment": "production", "FrameSuggestedServerURL": "https://private.example"])
+        let dev = AppConfiguration(bundleIdentifier: "tech.swagner.openfotoframe.dev", info: ["FrameBuildEnvironment": "development", "FrameSuggestedServerURL": "https://DEV.example:443"])
+        XCTAssertEqual(production.keychainService, "tech.swagner.openfotoframe.device-sessions")
+        XCTAssertNotEqual(production.keychainService, dev.keychainService)
+        XCTAssertEqual(production.urlScheme, "openfotoframe")
+        XCTAssertEqual(dev.urlScheme, "openfotoframe-dev")
+        XCTAssertEqual(production.suggestedServer, "")
+        XCTAssertEqual(dev.suggestedServer, "https://dev.example")
+        let proof = try BrowserAuthorizationProof()
+        let callback = URL(string: dev.callbackURI + "?code=once&state=\(proof.state)&iss=https%3A%2F%2Fdev.example")!
+        XCTAssertEqual(try proof.code(from: callback, issuer: "https://dev.example", scheme: dev.urlScheme), "once")
+        XCTAssertThrowsError(try proof.code(from: callback, issuer: "https://dev.example", scheme: production.urlScheme))
+        let types = try XCTUnwrap(Bundle.main.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]])
+        XCTAssertEqual(types.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }, [AppConfiguration.current.urlScheme])
+    }
+
+    func testDevelopmentCredentialRemovalCannotRemoveProductionNamespace() throws {
+        let prefix = "fixture.identity." + UUID().uuidString
+        let prod = KeychainCredentialVault(configuration: .init(bundleIdentifier: prefix, info: [:]))
+        let dev = KeychainCredentialVault(configuration: .init(bundleIdentifier: prefix + ".dev", info: ["FrameBuildEnvironment": "development"]))
+        let key = "same-origin-and-account"
+        defer { try? prod.remove(key: key); try? dev.remove(key: key) }
+        let value = DeviceCredentials(origin: "https://frame.example.test", serverID: "s", accountID: "a", accessToken: "fixture-access", refreshToken: "fixture-refresh", expiresAt: .distantFuture, sessionID: "session")
+        try prod.write(value, key: key)
+        XCTAssertNil(try dev.read(key: key))
+        try dev.write(value, key: key)
+        try dev.remove(key: key)
+        XCTAssertEqual(try prod.read(key: key), value)
+    }
+
     func testRetainedPhotoCannotRestoreAfterAnyPurgeRequest() {
         let untouched = RetainedPhoto(id: "a", filename: "file.jpg", title: "", byteSize: 10, purge: nil)
         XCTAssertTrue(untouched.canRestore); XCTAssertTrue(untouched.canRequestRemoval)
@@ -71,7 +106,7 @@ final class ConnectionTests: XCTestCase {
     func testBrowserAuthorizationBindsStateIssuerAndSingleCode() throws {
         let proof = try BrowserAuthorizationProof()
         XCTAssertEqual(proof.verifier.count, 43); XCTAssertEqual(proof.challenge.count, 43)
-        let callback = "openfotoframe://auth/callback?code=once&state=\(proof.state)&iss=https%3A%2F%2Fserver.example"
+        let callback = "\(AppConfiguration.current.urlScheme)://auth/callback?code=once&state=\(proof.state)&iss=https%3A%2F%2Fserver.example"
         XCTAssertEqual(try proof.code(from: URL(string: callback)!, issuer: "https://server.example"), "once")
         XCTAssertThrowsError(try proof.code(from: URL(string: callback)!, issuer: "https://foreign.example"))
         XCTAssertThrowsError(try proof.code(from: URL(string: callback + "&code=duplicate")!, issuer: "https://server.example"))

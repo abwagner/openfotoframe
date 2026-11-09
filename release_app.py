@@ -86,11 +86,17 @@ def environment_config(environ=None):
         "SESSION_COOKIE_SAMESITE": "Lax",
         "SESSION_COOKIE_NAME": "release_context",
         "APP_LINK_TEAM_ID": env.get("APP_LINK_TEAM_ID", ""),
+        "APP_LINK_SCHEME": env.get("APP_LINK_SCHEME", "openfotoframe"),
         "APP_LINK_BUNDLE_ID": env.get(
             "APP_LINK_BUNDLE_ID", "tech.swagner.openfotoframe"
         ),
     }
-    for key in ("BILLING_PLANS", "APPLE_ROOT_CERTIFICATES", "BILLING_CHECKOUT_HOSTS"):
+    for key in (
+        "BILLING_PLANS",
+        "APPLE_ROOT_CERTIFICATES",
+        "BILLING_CHECKOUT_HOSTS",
+        "AUTH_REDIRECT_URIS",
+    ):
         if env.get(key):
             try:
                 value = json.loads(env[key])
@@ -99,6 +105,19 @@ def environment_config(environ=None):
             if not isinstance(value, list):
                 raise ValueError(f"{key} must be a JSON array.")
             config[key] = value
+    if config["APP_LINK_SCHEME"] not in ("openfotoframe", "openfotoframe-dev"):
+        raise ValueError(
+            "APP_LINK_SCHEME must identify the production or development app."
+        )
+    if "AUTH_REDIRECT_URIS" in config:
+        allowed = {"openfotoframe://auth/callback", "openfotoframe-dev://auth/callback"}
+        values = config["AUTH_REDIRECT_URIS"]
+        if not values or any(
+            not isinstance(value, str) or value not in allowed for value in values
+        ):
+            raise ValueError(
+                "AUTH_REDIRECT_URIS must contain explicitly supported app callbacks."
+            )
     for key in (
         "BILLING_DATABASE_URL",
         "STRIPE_SECRET_KEY",

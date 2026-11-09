@@ -4,11 +4,11 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const source = fs.readFileSync(new URL('../release_web/static/connect.js', import.meta.url), 'utf8');
-function landing(fragment, origin = 'https://frame.example.com') {
+function landing(fragment, origin = 'https://frame.example.com', scheme = 'openfotoframe') {
     const elements = new Map();
     const node = id => {
         if (!elements.has(id)) elements.set(id, {
-            hidden: ['connection', 'browser-form'].includes(id), attributes: {}, events: {},
+            hidden: ['connection', 'browser-form'].includes(id), attributes: {}, events: {}, dataset: {appScheme: scheme},
             textContent: '', disabled: true, checked: false,
             setAttribute(k, v) { this.attributes[k] = v; },
             removeAttribute(k) { delete this[k]; delete this.attributes[k]; },
@@ -82,4 +82,12 @@ test('local HTTP is explicit and remains behind destination confirmation', () =>
     assert.equal(target.pathname, '/connect');
     assert.equal(target.search, '');
     assert.match(target.hash, /token=/);
+ });
+
+ test('dev landing uses its own app scheme after destination confirmation', () => {
+    const {node} = landing(link(), 'https://frame.example.com', 'openfotoframe-dev');
+    assert.equal(node('open-app').href, undefined);
+    node('confirm-destination').checked = true;
+    node('confirm-destination').events.change();
+    assert.match(node('open-app').href, /^openfotoframe-dev:\/\/connect#/);
  });

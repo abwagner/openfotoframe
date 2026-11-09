@@ -61,8 +61,9 @@ with `destination` set to `upload` and export the same archive using that copy.
    system encryption through URLSession/WebKit and declares
    `ITSAppUsesNonExemptEncryption = NO`. Reassess if dependencies or cryptography
    change.
-3. Assign the build to an internal testing group and select only the intended
-   App Store Connect team users. Internal testing does not use a public link.
+3. Create an internal testing group with automatic distribution disabled, assign
+   the reviewed build, and select only the intended App Store Connect team users.
+   Internal testing does not use a public link.
 4. Install through TestFlight on a physical device. Verify first launch, server
    connection, login/logout, uploads, mat previews, native/web session sharing,
    and upgrading an existing installation without losing its saved server.

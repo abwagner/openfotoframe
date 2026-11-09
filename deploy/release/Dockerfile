@@ -23,5 +23,5 @@ USER 10001:10001
 ENV PYTHONUNBUFFERED=1 DATA_ROOT=/data MEDIA_ROOT=/data/media
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/server', timeout=3)"
+  CMD python -c "import os,urllib.request,urllib.parse; request=urllib.request.Request('http://127.0.0.1:8000/api/v1/server',headers={'Host':urllib.parse.urlsplit(os.environ['PUBLIC_ORIGIN']).netloc}); urllib.request.urlopen(request,timeout=3)"
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--access-logfile", "/dev/null", "release_app:create_app()"]

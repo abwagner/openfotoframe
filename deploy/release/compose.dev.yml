@@ -1,0 +1,45 @@
+# Standalone private dev stack; never combine with a production Compose project.
+name: openfotoframe-dev
+x-runtime: &runtime
+  image: ${OPENFOTOFRAME_DEV_IMAGE:?Set an immutable reviewed dev image tag}
+  env_file:
+    - ${OPENFOTOFRAME_DEV_ENV_FILE:?Set the private dev environment file}
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp:mode=1777,size=256m
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  pids_limit: 128
+  mem_limit: 768m
+  cpus: 1.0
+  volumes:
+    - dev-data:/data
+  logging:
+    driver: json-file
+    options: {max-size: 10m, max-file: "3"}
+services:
+  web:
+    <<: *runtime
+    command: [gunicorn, --bind, "0.0.0.0:8000", --workers, "1", --access-logfile, /dev/null, "release_app:create_app()"]
+    networks: [private, proxy]
+    ports: ["127.0.0.1:8071:8000"]
+    labels:
+      traefik.enable: "false"
+      tsdproxy.enable: "true"
+      tsdproxy.name: ${OPENFOTOFRAME_DEV_TAILSCALE_NAME:?Set a unique private service name}
+      tsdproxy.port.1: "443/https:8000/http"
+  worker:
+    <<: *runtime
+    command: [python, scripts/release_worker.py, --supervise, --poll-seconds, "5"]
+    networks: [private]
+    healthcheck: {disable: true}
+    cpus: 0.5
+networks:
+  private:
+  proxy:
+    external: true
+    name: proxy
+volumes:
+  dev-data:
+    name: openfotoframe_dev_data

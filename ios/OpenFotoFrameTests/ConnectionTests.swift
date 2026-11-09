@@ -3,6 +3,44 @@ import WebKit
 @testable import OpenFotoFrame
 
 final class ConnectionTests: XCTestCase {
+    func testRetainedPhotoCannotRestoreAfterAnyPurgeRequest() {
+        let untouched = RetainedPhoto(id: "a", filename: "file.jpg", title: "", byteSize: 10, purge: nil)
+        XCTAssertTrue(untouched.canRestore); XCTAssertTrue(untouched.canRequestRemoval)
+        XCTAssertEqual(untouched.name, "file.jpg")
+        let failed = RetainedPhoto(id: "a", filename: "file.jpg", title: "Photo", byteSize: 10, purge: .init(id: "p", state: "failed"))
+        XCTAssertFalse(failed.canRestore); XCTAssertTrue(failed.canRequestRemoval)
+        let queued = RetainedPhoto(id: "a", filename: "file.jpg", title: nil, byteSize: 10, purge: .init(id: "p", state: "queued"))
+        XCTAssertFalse(queued.canRestore); XCTAssertFalse(queued.canRequestRemoval)
+    }
+
+    func testHouseholdStorageStatusAndUnknownSelfHostedLimits() throws {
+        let usage = HouseholdStorage.Usage(activeBytes: 60, retainedDeletedBytes: 40, totalBytes: 100, activeAssets: 2, frames: 1)
+        let full = HouseholdStorage(householdId: "h", deploymentMode: "hosted", accounting: "original_bytes", usage: usage, entitlement: .init(active: true, status: "active", planId: "configured", validUntil: nil), limits: .init(storageBytes: 100, assetLimit: 5, frameLimit: 2), remaining: .init(storageBytes: 0, assets: 3, frames: 1))
+        XCTAssertTrue(full.full)
+        XCTAssertEqual(full.uploadStatus, "Household storage is full.")
+        let selfHosted = try FrameJSON.decode(HouseholdStorage.self, from: Data(#"{"household_id":"h","deployment_mode":"self_hosted","accounting":"original_bytes","usage":{"active_bytes":60,"retained_deleted_bytes":40,"total_bytes":100,"active_assets":2,"frames":1},"entitlement":{"active":false,"status":"unconfigured","plan_id":null,"valid_until":null},"limits":null,"remaining":null}"#.utf8))
+        XCTAssertFalse(selfHosted.full)
+        XCTAssertEqual(selfHosted.uploadStatus, "Storage is managed by your server.")
+        XCTAssertNil(selfHosted.limits)
+        XCTAssertFalse(ReleaseHTTPFailure(status: 409, code: "storage_quota_exceeded", message: "hidden original message").localizedDescription.contains("hidden original message"))
+        XCTAssertTrue(ReleaseHTTPFailure(status: 402, code: "subscription_required", message: "inactive").localizedDescription.contains("household owner"))
+    }
+
+    @MainActor
+    func testPartialCollectionMemberNeverRequestsHouseholdStorageTotals() async throws {
+        let name = "StorageTests-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let transport = FakeTransport(server: try FrameServer("https://frame.example.test"))
+        let connection = ReleaseSession(vault: MemoryVault(), defaults: defaults, transportFactory: { _ in transport })
+        await connection.connect(mode: .selfHosted, address: transport.server.origin)
+        await connection.login(email: "person@example.com", password: "fixture")
+        connection.selectScope(household: .init(id: "h", name: "Shared", role: "member"), collection: .init(id: "c", name: "Selected", permission: "contributor"), frame: nil)
+        do { _ = try await connection.householdStorage(); XCTFail("A member must not request aggregate statistics") }
+        catch { XCTAssertTrue(error.localizedDescription.contains("owners and administrators")) }
+        XCTAssertFalse(transport.requests.contains { $0.url?.path.hasSuffix("/storage") == true })
+    }
+
     func testBridgeRejectsForeignRedirectCookiesAndInsecureSession() throws {
         let server = try FrameServer("https://frame.example.com")
         func cookies(_ domain: String = "frame.example.com", secure: Bool = true) -> [HTTPCookie] {

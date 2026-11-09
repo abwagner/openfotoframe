@@ -604,3 +604,55 @@ def test_collection_reorder_is_reflected_in_frame_playlist(web):
     result = client.get("/frame/playlist", headers=headers)
     assert result.status_code == 200
     assert [item["id"] for item in result.json["slides"]] == [second, first]
+
+
+def test_frame_playlist_conditional_delivery_rechecks_changes_and_revocation(web):
+    app, owner, hid, cid, fid, headers = web
+    aid = upload(app, headers)
+    client = app.test_client()
+    assert (
+        client.patch(
+            f"/api/v1/households/{hid}/frames/{fid}",
+            headers=auth(owner),
+            json={"collection_ids": [cid]},
+        ).status_code
+        == 200
+    )
+    enrollment = client.post(
+        f"/api/v1/households/{hid}/frames/{fid}/enrollments",
+        headers=auth(owner),
+        json={},
+    ).json["enrollment_token"]
+    display = app.test_client()
+    assert (
+        display.post("/display/enroll", data={"token": enrollment}).status_code == 303
+    )
+    first = display.get("/frame/playlist")
+    assert first.status_code == 200 and first.headers["ETag"]
+    conditional = {"If-None-Match": first.headers["ETag"]}
+    same = display.get("/frame/playlist", headers=conditional)
+    assert same.status_code == 304 and same.data == b""
+    assert "no-store" in same.headers["Cache-Control"]
+    assert (
+        client.patch(
+            "/api/gallery/" + aid, headers=headers, json={"mat_color": "#123456"}
+        ).status_code
+        == 200
+    )
+    changed = display.get("/frame/playlist", headers=conditional)
+    assert (
+        changed.status_code == 200 and changed.headers["ETag"] != first.headers["ETag"]
+    )
+    from release_backend import models as m
+    from sqlalchemy import update
+
+    with app.extensions["release_store"].transaction() as db:
+        db.execute(
+            update(m.frame_credentials)
+            .where(m.frame_credentials.c.frame_id == fid)
+            .values(revoked=True)
+        )
+    denied = display.get(
+        "/frame/playlist", headers={"If-None-Match": changed.headers["ETag"]}
+    )
+    assert denied.status_code == 401 and not denied.headers.get("ETag")

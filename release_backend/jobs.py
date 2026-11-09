@@ -96,18 +96,19 @@ def create_export(hid, cid):
     return jsonify(id=jid, state="queued"), 202
 
 
-def job_access(hid, jid):
+def job_access(hid, jid, lock=False):
     household(hid)
-    row = (
-        g.release_db.execute(
-            select(m.jobs).where(
+    query = select(m.jobs).where(
                 and_(
                     m.jobs.c.household_id == hid,
                     m.jobs.c.id == jid,
                     m.jobs.c.requested_by == g.release_user["id"],
                 )
             )
-        )
+    if lock:
+        query = query.with_for_update()
+    row = (
+        g.release_db.execute(query)
         .mappings()
         .first()
     )
@@ -134,7 +135,7 @@ def get_job(hid, jid):
 @bp.get("/households/<hid>/jobs/<jid>/download")
 @require_auth
 def download_job(hid, jid):
-    row = job_access(hid, jid)
+    row = job_access(hid, jid, lock=True)
     if row["created_at"] <= now() - 86400:
         fail("export_expired", "This export has expired.", 410)
     if row["state"] != "complete":
@@ -155,7 +156,7 @@ def download_job(hid, jid):
 @bp.delete("/households/<hid>/jobs/<jid>")
 @require_auth
 def delete_job(hid, jid):
-    row = job_access(hid, jid)
+    row = job_access(hid, jid, lock=True)
     if row["result_key"]:
         current_app.extensions["release_storage"].delete(row["result_key"])
     g.release_db.execute(
@@ -170,7 +171,7 @@ def delete_job(hid, jid):
     return jsonify(ok=True)
 
 
-def process_export(app, job_id, household_id, user_id):
+def process_export(app, job_id, household_id, user_id, dispatch_token=None):
     """Run a persisted job using its exact scope, never a client-provided payload.
 
     An operator/worker obtains these IDs from the durable queue. API credentials
@@ -201,7 +202,6 @@ def process_export(app, job_id, household_id, user_id):
                         m.jobs.c.requested_by == user_id,
                     )
                 )
-                .with_for_update()
             )
             .mappings()
             .first()
@@ -209,13 +209,27 @@ def process_export(app, job_id, household_id, user_id):
         if not row or row["state"] != "queued":
             return False
         try:
-            if row["created_at"] <= now() - 86400:
-                fail("export_expired", "This export has expired.", 410)
             if not user or user["disabled"]:
                 fail(
                     "permission_revoked", "The requesting account is unavailable.", 403
                 )
             g.release_user = dict(user)
+            # HTTP mutations acquire membership before job. Match that order so
+            # worker completion and deletion cannot deadlock or orphan a newly
+            # produced archive after a stale queued-row read.
+            household(household_id)
+            row = db.execute(select(m.jobs).where(and_(m.jobs.c.id == job_id,
+                m.jobs.c.household_id == household_id, m.jobs.c.requested_by == user_id))
+                .with_for_update()).mappings().first()
+            if not row or row['state'] != 'queued':
+                return False
+            if dispatch_token is not None:
+                if row['dispatch_token'] != dispatch_token or row['dispatch_until'] <= now():
+                    return False
+            elif row['dispatch_token'] and row['dispatch_until'] > now():
+                return False
+            if row["created_at"] <= now() - 86400:
+                fail("export_expired", "This export has expired.", 410)
             selected, _ = collection(household_id, row["collection_id"])
             assets = (
                 db.execute(
@@ -290,6 +304,10 @@ def process_export(app, job_id, household_id, user_id):
             # Recheck the grant immediately before making the result available.
             collection(household_id, row["collection_id"])
             key = f"{household_id}/jobs/{job_id}/export.zip"
+            # An interrupted previous attempt can leave this deterministic
+            # private artifact after its metadata transaction rolled back. The
+            # revalidated queued-job lock makes replacing only this key safe.
+            storage.delete(key)
             storage.write(key, output.getvalue())
             db.execute(
                 update(m.jobs)

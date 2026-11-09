@@ -196,6 +196,22 @@ BEGIN
    (SELECT count(*) FROM public.frames f WHERE f.household_id=hid)::bigint
    FROM public.assets a WHERE a.household_id=hid;
 END $$;
+-- Household-wide customer accounting is administrative; ordinary members may
+-- consume quota through scoped writes but cannot inspect hidden collections.
+CREATE OR REPLACE FUNCTION public.release_storage_usage(hid text)
+RETURNS TABLE(active_bytes bigint,retained_deleted_bytes bigint,total_bytes bigint,active_assets bigint,frame_count bigint)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+BEGIN
+ IF hid IS DISTINCT FROM public.release_household_id() OR NOT public.release_admin(hid) THEN
+   RAISE EXCEPTION 'invalid storage accounting scope';
+ END IF;
+ RETURN QUERY SELECT coalesce(sum(a.byte_size) FILTER (WHERE NOT a.deleted),0)::bigint,
+   coalesce(sum(a.byte_size) FILTER (WHERE a.deleted),0)::bigint,
+   coalesce(sum(a.byte_size),0)::bigint,
+   count(*) FILTER (WHERE NOT a.deleted)::bigint,
+   (SELECT count(*) FROM public.frames f WHERE f.household_id=hid)::bigint
+   FROM public.assets a WHERE a.household_id=hid;
+END $$;
 CREATE OR REPLACE FUNCTION public.release_quota_entitlement(hid text)
 RETURNS SETOF public.billing_subscriptions
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
@@ -329,6 +345,7 @@ REVOKE ALL ON FUNCTION public.release_invitation_issuer_active(text) FROM PUBLIC
 REVOKE ALL ON FUNCTION public.release_invitation_household_name(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.release_accept_invitation(text,text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.release_quota_usage(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.release_storage_usage(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.release_quota_entitlement(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.release_lock_billing_household(text) FROM PUBLIC;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
@@ -374,4 +391,10 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.release_enroll_frame(text,text,text,text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.release_control_frame(integer,boolean) FROM PUBLIC;
+-- Trash deletion receipts contain object keys and remain administrator-only.
+ALTER TABLE public.media_purges ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS release_admin_media_purge ON public.media_purges;
+CREATE POLICY release_admin_media_purge ON public.media_purges USING
+ (public.release_scope(household_id) AND public.release_admin(household_id))
+ WITH CHECK (public.release_scope(household_id) AND public.release_admin(household_id));
 COMMIT;

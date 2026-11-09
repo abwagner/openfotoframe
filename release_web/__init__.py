@@ -17,6 +17,8 @@ def register(app):
     from .recovery import recovery_pages
     from .backups import backup_pages
     from .frame_settings import frame_settings
+    from .storage import storage_pages
+    from .trash import trash_pages
 
     app.register_blueprint(blueprint)
     app.register_blueprint(pages)
@@ -25,3 +27,5 @@ def register(app):
     app.register_blueprint(account_pages)
     app.register_blueprint(recovery_pages)
     app.register_blueprint(backup_pages)
+    app.register_blueprint(storage_pages)
+    app.register_blueprint(trash_pages)

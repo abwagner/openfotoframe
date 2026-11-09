@@ -19,7 +19,7 @@ GRANT EXECUTE ON FUNCTION public.release_auth_frame(text),public.release_lock_me
  public.release_create_household(text,text,text,text),
  public.release_lookup_invitation(text),public.release_invitation_issuer_active(text),
  public.release_invitation_household_name(text),public.release_accept_invitation(text,text),
- public.release_quota_usage(text),public.release_quota_entitlement(text),
+ public.release_quota_usage(text),public.release_storage_usage(text),public.release_quota_entitlement(text),
  public.release_enroll_frame(text,text,text,text),public.release_control_frame(integer,boolean)
  TO openfotoframe_app;
 -- Keep migrations and operational state out of user-facing SQL paths.

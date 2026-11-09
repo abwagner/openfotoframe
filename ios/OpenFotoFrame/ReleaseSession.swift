@@ -14,7 +14,15 @@ struct ReleaseHTTPFailure: LocalizedError {
     let status: Int
     let code: String
     let message: String
-    var errorDescription: String? { message }
+    var errorDescription: String? {
+        switch code {
+        case "storage_quota_exceeded": return "Household storage is full. An owner or administrator can review retained deleted photos and storage. Removing photos from a collection alone may not free space."
+        case "asset_quota_exceeded": return "The household’s photo limit has been reached. Ask an owner or administrator to review its photos and plan."
+        case "frame_quota_exceeded": return "The household’s frame limit has been reached. Ask an owner or administrator to review its frames and plan."
+        case "subscription_required": return "Uploads are paused because the hosted subscription is inactive. Ask the household owner to review it, then retry."
+        default: return message
+        }
+    }
 }
 
 /// Each transport owns one immutable origin; redirects cannot carry a credential elsewhere.
@@ -307,6 +315,12 @@ final class ReleaseSession: ObservableObject {
     func sendLegacy(_ path: String, method: String = "GET", body: Data? = nil, contentType: String? = nil) async throws -> Data {
         guard scope != nil else { throw FrameError.message("Choose a collection first.") }
         return try await send(path, method: method, body: body, contentType: contentType).0
+    }
+    func householdStorage() async throws -> HouseholdStorage {
+        guard let scope, scope.administrator else { throw FrameError.message("Only household owners and administrators can view aggregate storage.") }
+        let result: HouseholdStorage = try await json("api/v1/households/\(scope.household.id)/storage")
+        guard result.householdId == scope.household.id else { throw FrameError.message("The storage response does not match this household.") }
+        return result
     }
     func bridgeRequest(path: String) async throws -> URLRequest {
         guard let scope, let server else { throw FrameError.signedOut }

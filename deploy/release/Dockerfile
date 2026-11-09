@@ -7,9 +7,12 @@ RUN pip install --no-cache-dir -r requirements-cloud.txt -r requirements-billing
     && useradd --uid 10001 --create-home frame \
     && mkdir -p /data/media && chown -R frame:frame /data
 COPY release_app.py render_display.py artwork_catalog.py /app/
-COPY scripts/release_init_schema.py scripts/release_worker.py scripts/release_migrate.py scripts/release_recovery.py /app/scripts/
+COPY scripts/release_init_schema.py scripts/release_worker.py scripts/release_migrate.py scripts/release_recovery.py scripts/release_upgrade_workers.py /app/scripts/
 COPY release_migration/ /app/release_migration/
+COPY release_workers/ /app/release_workers/
 COPY deploy/release/postgres-rls.sql deploy/release/postgres-roles.sql /app/deploy/release/
+COPY deploy/release/postgres-dispatch-role.sql /app/deploy/release/
+COPY deploy/release/migrations/002_worker_dispatch.sql /app/deploy/release/migrations/
 COPY release_backend/ /app/release_backend/
 COPY release_billing/ /app/release_billing/
 COPY release_delivery/ /app/release_delivery/

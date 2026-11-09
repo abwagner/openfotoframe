@@ -23,8 +23,11 @@ and independently hosted servers. They are separate from the legacy installation
 below and are not enabled by updating this checkout. See [release readiness](docs/RELEASE_READINESS.md),
 [architecture and access control](docs/RELEASE_ARCHITECTURE.md),
 [migration rehearsal](docs/RELEASE_MIGRATION.md), and [hosted operations](docs/HOSTED_OPERATIONS.md).
-Paid launch and production migration remain gated; the release backend does not
-yet execute physical TV power schedules or install a durable export worker.
+Paid launch and production migration remain gated. Included storage has
+[usage and quota accounting](docs/RELEASE_STORAGE.md), explicit
+[trash/permanent deletion](docs/RELEASE_MEDIA_LIFECYCLE.md), and opt-in durable
+workers. Physical TV power execution is still separate; no live worker or service
+is installed by changing this checkout.
 
 ## Install
 

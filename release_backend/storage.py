@@ -46,11 +46,22 @@ class S3Storage:
         self.bucket = bucket
         self.prefix = prefix.strip("/")
 
+    def configuration(self, operation):
+        try:
+            response = getattr(self.client, operation)(Bucket=self.bucket)
+        except Exception:
+            raise StorageError(
+                "Hosted storage configuration could not be verified"
+            ) from None
+        if not isinstance(response, dict):
+            raise StorageError("Hosted storage configuration could not be verified")
+        return response
+
     def validate_private(self):
-        settings = self.client.get_public_access_block(Bucket=self.bucket).get(
+        settings = self.configuration("get_public_access_block").get(
             "PublicAccessBlockConfiguration", {}
         )
-        if not all(
+        if not isinstance(settings, dict) or not all(
             settings.get(key) is True
             for key in (
                 "BlockPublicAcls",
@@ -62,6 +73,40 @@ class S3Storage:
             raise ValueError(
                 "Hosted S3 storage requires all bucket Block Public Access settings"
             )
+        versioning = self.configuration("get_bucket_versioning")
+        # AWS omits Status only for a bucket whose versioning has never been
+        # enabled. Suspended retains historical versions and is not sufficient.
+        if "Status" in versioning or versioning.get("MFADelete") not in (
+            None,
+            "Disabled",
+        ):
+            raise ValueError(
+                "Hosted primary S3 storage requires a never-versioned bucket"
+            )
+        try:
+            lock = self.client.get_object_lock_configuration(Bucket=self.bucket)
+        except Exception as error:
+            response = getattr(error, "response", {})
+            details = response.get("Error") if isinstance(response, dict) else None
+            code = details.get("Code") if isinstance(details, dict) else None
+            if code == "ObjectLockConfigurationNotFoundError":
+                return
+            # An IAM denial, unsupported operation or unavailable provider must
+            # never be mistaken for verified absence of Object Lock.
+            raise StorageError(
+                "Hosted storage Object Lock configuration could not be verified"
+            ) from None
+        if (
+            isinstance(lock, dict)
+            and isinstance(lock.get("ObjectLockConfiguration"), dict)
+            and lock["ObjectLockConfiguration"].get("ObjectLockEnabled") == "Enabled"
+        ):
+            raise ValueError(
+                "Hosted primary S3 storage must not have Object Lock enabled"
+            )
+        raise StorageError(
+            "Hosted storage Object Lock configuration could not be verified"
+        )
 
     def key(self, key):
         if key.startswith("/") or any(

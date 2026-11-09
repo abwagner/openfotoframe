@@ -342,6 +342,10 @@ jobs = Table(
     Column("error_code", String(80)),
     Column("created_at", Integer, nullable=False),
     Column("completed_at", Integer),
+    Column("dispatch_attempts", Integer, nullable=False, server_default="0"),
+    Column("dispatch_token", String(64)),
+    Column("dispatch_until", Integer, nullable=False, server_default="0"),
+    Column("dispatch_next_at", Integer, nullable=False, server_default="0"),
     ForeignKeyConstraint(
         ["household_id", "collection_id"],
         ["collections.household_id", "collections.id"],
@@ -362,3 +366,31 @@ authorization_requests = Table(
     Column("source_session_id", String(64), ForeignKey("device_sessions.id")),
     Column("consumed", Boolean, nullable=False, default=False),
 )
+
+# Explicit owner/admin deletion requests. Retain a receipt after the asset row is
+# removed; object keys are server-generated and never accepted from the client.
+media_purges = Table(
+    "media_purges",
+    metadata,
+    *tenant("media_purges"),
+    Column("collection_id", String(64), nullable=False),
+    Column("asset_id", String(64), nullable=False),
+    Column("requested_by", String(64), ForeignKey("users.id"), nullable=False),
+    Column("storage_key", String(255), nullable=False),
+    Column("thumbnail_key", String(255)),
+    Column("state", String(24), nullable=False),
+    Column("error_code", String(80)),
+    Column("created_at", Integer, nullable=False),
+    Column("completed_at", Integer),
+    Column("dispatch_token", String(64)),
+    Column("dispatch_until", Integer, nullable=False, server_default="0"),
+    Column("dispatch_attempts", Integer, nullable=False, server_default="0"),
+    Column("dispatch_next_at", Integer, nullable=False, server_default="0"),
+    UniqueConstraint("household_id", "asset_id"),
+    ForeignKeyConstraint(
+        ["household_id", "collection_id"],
+        ["collections.household_id", "collections.id"],
+    ),
+    CheckConstraint("state IN ('queued','complete','failed')"),
+)
+TENANT_TABLES.append(media_purges)

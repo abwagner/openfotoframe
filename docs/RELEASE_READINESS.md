@@ -57,16 +57,40 @@ shared display secrets. Frame enrollment must be repeated. TLS-only SMTP deliver
 and an offline existing-user self-hosted recovery command are available; neither
 bypasses enrolled MFA. See the migration and operations runbooks for exact limits.
 
+## Managed-storage follow-up
+
+Owners and administrators can now inspect active and retained original bytes,
+configured allowances and remaining photo/frame capacity in iOS and the browser.
+Ordinary members cannot retrieve hidden household totals. Quota failures identify
+storage/photo/frame limits separately from inactive subscriptions, and concurrent
+contributions are serialized before capacity is reserved.
+
+Removed photos remain in administrator-only collection trash. Restoration rechecks
+current entitlement/active-photo limits. Explicit, recently authenticated permanent
+removal queues a durable request; retained bytes count until object deletion and
+metadata commit complete. The worker rechecks current authority, respects exclusive
+claims and retries interrupted object deletion without releasing quota twice.
+There is no automatic photo-deletion policy. Original-byte allowance accounting
+excludes generated assets and differs from the provider's version/backup storage
+bill. Hosted primary buckets must be private, never-versioned and verified free
+of Object Lock; missing configuration-read permissions fail startup. Backup
+retention remains separate. The TV display also avoids repeat playlist payloads
+when an authorized poll is unchanged. See [storage accounting](RELEASE_STORAGE.md) and
+[media lifecycle](RELEASE_MEDIA_LIFECYCLE.md).
+
 ## Local verification
 
-- Full Python suite: **356 passed, 12 skipped** (the PostgreSQL cases are opt-in).
-- Disposable real PostgreSQL suite with restricted roles: **12 passed**, no skips.
-- Final export/restore/storage checks after the size-limit correction: **5 passed**.
-- Final browser/rendering checks after the reorder correction: **15 passed**.
-- Node browser/fullscreen/artwork tests: **24 passed**.
-- iOS Release simulator build passed; native tests: **26 passed, 1 optional legacy
-  live-server test skipped**. Both UI tests passed, including the authenticated
-  advanced crop editor. No physical device installation or archive/upload occurred.
+- Full Python suite with disposable PostgreSQL enabled: **434 passed**, no skips.
+  This includes **21 real PostgreSQL cases** covering restricted application,
+  billing and dispatcher roles, concurrent quotas, worker races and upgrades.
+- Node browser/fullscreen/artwork/delivery tests: **26 passed**.
+- iOS Release simulator build passed; native tests: **29 passed, 1 optional legacy
+  live-server test skipped**. The expanded native login → advanced crop editor →
+  account → storage → deleted photos UI integration passed. No physical device
+  installation or archive/upload occurred.
+- The rebuilt image passed a network-disabled temporary-data smoke test of schema
+  upgrade/idempotency, login, storage usage, trash, permanent-deletion dispatch and
+  the browser storage page. No live worker or provider was contacted.
 - Release Python lint/compilation and whitespace checks passed. Existing legacy
   Pillow deprecation warnings remain; they are not new release failures.
 Tests include tenant isolation and revocation, real restricted-role PostgreSQL RLS,
@@ -90,13 +114,17 @@ smoke test, not a production deployment or S3/payment integration test.
    Mocked SDK tests do not establish a real certificate chain, OCSP response,
    mailbox delivery or App Store sandbox behavior. Define cross-channel purchase
    reconciliation/refunds, cancellation, retention and support policy.
-2. **Durable background processing.** Collection exports are persisted and have an
-   exact-scope worker command, but an automatic dispatch/retry supervisor is not
-   installed. Queued exports stay queued until a worker runs. Configure and test
-   restart recovery, retry limits, reconciliation of private orphan objects after
-   storage-provider failures, result expiry and monitoring before offering hosted
-   backup service. Legacy global Dropbox backup is not migrated as a shared tenant
-   credential; collection export/restore is the new scoped path.
+2. **Provision and verify background processing.** Durable export and permanent-
+   deletion dispatch now has exclusive leases, bounded retries, restart recovery,
+   generated-export expiry cleanup and a separate execute-only PostgreSQL queue
+   identity. Schema upgrades are explicit; HTTP/worker startup never migrates a
+   database. The opt-in supervisor must still be provisioned and tested on the
+   deployment with real object storage and monitoring. No live worker was started.
+   Reconcile private orphan objects after provider/rollback failures and configure
+   object-version/backup retention before hosted launch. Legacy global Dropbox
+   backup is not a shared tenant credential; collection export/restore is the
+   scoped path. The current bounded collection archive limit is 25 MiB by default;
+   larger-library export splitting/streaming is still future work.
 3. **TV power execution.** Schedule configuration is scoped, validated and timezone
    aware, but the new server does not execute power commands. The UI/API state
    this explicitly. Keep existing automation until a per-frame agent, durable

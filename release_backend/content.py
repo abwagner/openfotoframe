@@ -419,12 +419,8 @@ def quota(hid, size=0, assets_to_add=0, frames_to_add=0):
             assets_to_add=assets_to_add,
             frames_to_add=frames_to_add,
         )
-    except BillingError:
-        fail(
-            "subscription_required",
-            "A verified active subscription with available capacity is required.",
-            402,
-        )
+    except BillingError as error:
+        fail(error.code, str(error), error.status)
 
 
 @bp.post("/households/<hid>/collections/<cid>/assets")

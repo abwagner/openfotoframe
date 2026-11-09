@@ -252,6 +252,8 @@ def create_app(config=None):
     from .jobs import bp as jobs
     from .passkeys import bp as passkeys
     from .schedules import bp as schedules
+    from .media_lifecycle import bp as media_lifecycle
+    from .storage_accounting import bp as storage_accounting
 
     app.register_blueprint(auth)
     app.register_blueprint(invitations)
@@ -259,6 +261,8 @@ def create_app(config=None):
     app.register_blueprint(jobs)
     app.register_blueprint(passkeys)
     app.register_blueprint(schedules)
+    app.register_blueprint(media_lifecycle)
+    app.register_blueprint(storage_accounting)
     # Optional billing integration shares the same transaction and policy service.
     if billing_register:
         billing_register(app)

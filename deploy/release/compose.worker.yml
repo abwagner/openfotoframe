@@ -1,0 +1,25 @@
+# Optional isolated rehearsal worker; never enabled by the web compose default.
+services:
+  release-worker:
+    profiles: [workers]
+    image: ${RELEASE_WORKER_IMAGE:?Build and review a local release image first}
+    command: [python, scripts/release_worker.py, --supervise, --poll-seconds, "5"]
+    env_file:
+      - ${RELEASE_WORKER_ENV_FILE:?Use a private worker environment file}
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+    volumes:
+      - release-worker-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=128m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    mem_limit: 512m
+    pids_limit: 64
+volumes:
+  release-worker-data:
+    external: true
+    name: ${RELEASE_WORKER_DATA_VOLUME:?Select an existing isolated rehearsal data volume}

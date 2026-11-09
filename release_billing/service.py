@@ -8,7 +8,10 @@ from . import models as b
 
 
 class BillingError(ValueError):
-    pass
+    def __init__(self, message, *, code="billing_unavailable", status=503):
+        super().__init__(message)
+        self.code = code
+        self.status = status
 
 
 @dataclass(frozen=True)
@@ -19,6 +22,7 @@ class VerifiedBillingEvent:
     product mapping and subscription state before returning this normalized result.
     The HTTP client cannot submit this structure as an entitlement or paid flag.
     """
+
     provider: str
     event_id: str
     household_id: str
@@ -37,22 +41,31 @@ def configured_plans(config) -> dict:
     result = {}
     products = {"stripe_price_id": set(), "apple_product_id": set()}
     for value in plans:
-        if (not isinstance(value, dict) or not isinstance(value.get("id"), str)
-                or not isinstance(value.get("name"), str) or not value["id"] or not value["name"]):
+        if (
+            not isinstance(value, dict)
+            or not isinstance(value.get("id"), str)
+            or not isinstance(value.get("name"), str)
+            or not value["id"]
+            or not value["name"]
+        ):
             raise BillingError("Plans require an id and name")
         plan = dict(value)
         for key, seen in products.items():
             if key in plan:
                 product = plan[key]
                 if not isinstance(product, str) or not product or product in seen:
-                    raise BillingError("Provider product mappings must be nonempty and unique")
+                    raise BillingError(
+                        "Provider product mappings must be nonempty and unique"
+                    )
                 seen.add(product)
         if plan["id"] in result:
             raise BillingError("Plan IDs must be unique")
         for key in ("storage_bytes", "asset_limit", "frame_limit"):
             limit = plan.get(key)
             if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
-                raise BillingError("Each plan must explicitly configure positive storage, asset and frame limits")
+                raise BillingError(
+                    "Each plan must explicitly configure positive storage, asset and frame limits"
+                )
         result[plan["id"]] = plan
     return result
 
@@ -71,132 +84,495 @@ class BillingService:
         re-enable an expired/cancelled entitlement. No content is deleted on expiry.
         """
         from release_backend.models import households
-        if (not isinstance(event, VerifiedBillingEvent) or not isinstance(event.status, str)
-                or event.status not in {"active", "expired", "cancelled", "past_due"}):
+
+        if (
+            not isinstance(event, VerifiedBillingEvent)
+            or not isinstance(event.status, str)
+            or event.status not in {"active", "expired", "cancelled", "past_due"}
+        ):
             raise BillingError("Invalid verified provider event")
-        fields = ((event.provider, 40), (event.event_id, 255), (event.household_id, 64),
-                  (event.subscription_id, 255), (event.plan_id, 120))
-        if any(not isinstance(value, str) or not value or len(value) > limit for value, limit in fields):
+        fields = (
+            (event.provider, 40),
+            (event.event_id, 255),
+            (event.household_id, 64),
+            (event.subscription_id, 255),
+            (event.plan_id, 120),
+        )
+        if any(
+            not isinstance(value, str) or not value or len(value) > limit
+            for value, limit in fields
+        ):
             raise BillingError("Invalid verified provider identity")
-        if any(isinstance(value, bool) or not isinstance(value, int) or value < 0
-               for value in (event.valid_until, event.revision)):
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in (event.valid_until, event.revision)
+        ):
             raise BillingError("Invalid verified provider timestamps/revision")
-        if event.plan_id not in self.plans or not event.event_id or not event.subscription_id or event.revision < 0:
+        if (
+            event.plan_id not in self.plans
+            or not event.event_id
+            or not event.subscription_id
+            or event.revision < 0
+        ):
             raise BillingError("Unknown plan or invalid event identity")
         digest = hashlib.sha256(raw_payload).hexdigest()
         # Serialize checkout/event/quota updates per household in PostgreSQL.
         if db.dialect.name == "postgresql":
-            exists = db.execute(text("SELECT public.release_lock_billing_household(:hid)"),
-                                {"hid": event.household_id}).scalar_one()
+            exists = db.execute(
+                text("SELECT public.release_lock_billing_household(:hid)"),
+                {"hid": event.household_id},
+            ).scalar_one()
         else:
-            exists = db.execute(select(households.c.id).where(households.c.id == event.household_id).with_for_update()).first()
+            exists = db.execute(
+                select(households.c.id)
+                .where(households.c.id == event.household_id)
+                .with_for_update()
+            ).first()
         if not exists:
             raise BillingError("Unknown billing household")
-        prior_event = db.execute(select(b.events).where(
-            (b.events.c.provider == event.provider) & (b.events.c.event_id == event.event_id))).mappings().first()
+        prior_event = (
+            db.execute(
+                select(b.events).where(
+                    (b.events.c.provider == event.provider)
+                    & (b.events.c.event_id == event.event_id)
+                )
+            )
+            .mappings()
+            .first()
+        )
         if prior_event:
-            if prior_event["payload_hash"] != digest or prior_event["household_id"] != event.household_id:
-                raise BillingError("Provider event ID was reused with different content")
+            if (
+                prior_event["payload_hash"] != digest
+                or prior_event["household_id"] != event.household_id
+            ):
+                raise BillingError(
+                    "Provider event ID was reused with different content"
+                )
             return {**prior_event["result"], "replayed": True}
-        existing = db.execute(select(b.subscriptions).where(b.subscriptions.c.household_id == event.household_id)).mappings().first()
-        binding = db.execute(select(b.subscription_bindings).where(
-            (b.subscription_bindings.c.provider == event.provider) &
-            (b.subscription_bindings.c.subscription_id == event.subscription_id))).mappings().first()
+        existing = (
+            db.execute(
+                select(b.subscriptions).where(
+                    b.subscriptions.c.household_id == event.household_id
+                )
+            )
+            .mappings()
+            .first()
+        )
+        binding = (
+            db.execute(
+                select(b.subscription_bindings).where(
+                    (b.subscription_bindings.c.provider == event.provider)
+                    & (
+                        b.subscription_bindings.c.subscription_id
+                        == event.subscription_id
+                    )
+                )
+            )
+            .mappings()
+            .first()
+        )
         if binding and binding["household_id"] != event.household_id:
             raise BillingError("Subscription is bound to another household")
-        same = existing and existing["provider"] == event.provider and existing["subscription_id"] == event.subscription_id
+        same = (
+            existing
+            and existing["provider"] == event.provider
+            and existing["subscription_id"] == event.subscription_id
+        )
         if not binding:
-            checkout = db.execute(select(b.checkout_requests).where(
-                (b.checkout_requests.c.id == event.checkout_reference) &
-                (b.checkout_requests.c.household_id == event.household_id) &
-                (b.checkout_requests.c.provider == event.provider) &
-                (b.checkout_requests.c.plan_id == event.plan_id))).mappings().first()
+            checkout = (
+                db.execute(
+                    select(b.checkout_requests).where(
+                        (b.checkout_requests.c.id == event.checkout_reference)
+                        & (b.checkout_requests.c.household_id == event.household_id)
+                        & (b.checkout_requests.c.provider == event.provider)
+                        & (b.checkout_requests.c.plan_id == event.plan_id)
+                    )
+                )
+                .mappings()
+                .first()
+            )
             if not checkout:
-                raise BillingError("Initial subscription requires a matching server checkout")
-            db.execute(insert(b.subscription_bindings).values(provider=event.provider,
-                subscription_id=event.subscription_id, household_id=event.household_id,
-                checkout_reference=checkout["id"], last_revision=event.revision,
-                last_status=event.status, last_plan_id=event.plan_id,
-                last_valid_until=event.valid_until, created_at=int(self.clock())))
+                raise BillingError(
+                    "Initial subscription requires a matching server checkout"
+                )
+            db.execute(
+                insert(b.subscription_bindings).values(
+                    provider=event.provider,
+                    subscription_id=event.subscription_id,
+                    household_id=event.household_id,
+                    checkout_reference=checkout["id"],
+                    last_revision=event.revision,
+                    last_status=event.status,
+                    last_plan_id=event.plan_id,
+                    last_valid_until=event.valid_until,
+                    created_at=int(self.clock()),
+                )
+            )
         newer = not binding or event.revision > binding["last_revision"]
         if binding and event.revision == binding["last_revision"]:
-            if any(binding[k] != getattr(event, value) for k, value in
-                   (("last_status", "status"), ("last_plan_id", "plan_id"), ("last_valid_until", "valid_until"))):
+            if any(
+                binding[k] != getattr(event, value)
+                for k, value in (
+                    ("last_status", "status"),
+                    ("last_plan_id", "plan_id"),
+                    ("last_valid_until", "valid_until"),
+                )
+            ):
                 raise BillingError("Conflicting subscription revision")
         if binding and newer:
-            db.execute(update(b.subscription_bindings).where(
-                (b.subscription_bindings.c.provider == event.provider) &
-                (b.subscription_bindings.c.subscription_id == event.subscription_id)).values(
-                    last_revision=event.revision, last_status=event.status,
-                    last_plan_id=event.plan_id, last_valid_until=event.valid_until))
+            db.execute(
+                update(b.subscription_bindings)
+                .where(
+                    (b.subscription_bindings.c.provider == event.provider)
+                    & (
+                        b.subscription_bindings.c.subscription_id
+                        == event.subscription_id
+                    )
+                )
+                .values(
+                    last_revision=event.revision,
+                    last_status=event.status,
+                    last_plan_id=event.plan_id,
+                    last_valid_until=event.valid_until,
+                )
+            )
         # Do not let another channel or a retired subscription replace an active
         # household subscription. Once that subscription ends, a genuinely newer
         # verified renewal/restore may reactivate its permanent original binding.
-        different_active = bool(existing and not same and existing["status"] == "active"
-                                and existing["valid_until"] > self.clock())
-        applied = newer and not different_active and (not same or event.revision > existing["revision"])
+        different_active = bool(
+            existing
+            and not same
+            and existing["status"] == "active"
+            and existing["valid_until"] > self.clock()
+        )
+        applied = (
+            newer
+            and not different_active
+            and (not same or event.revision > existing["revision"])
+        )
         if same and event.revision == existing["revision"]:
             # Equal revisions with contradictory state are not safely orderable.
-            if any(existing[k] != getattr(event, k) for k in ("plan_id", "status", "valid_until")):
+            if any(
+                existing[k] != getattr(event, k)
+                for k in ("plan_id", "status", "valid_until")
+            ):
                 raise BillingError("Conflicting subscription revision")
         if applied:
-            values = dict(provider=event.provider, subscription_id=event.subscription_id,
-                          plan_id=event.plan_id, status=event.status, valid_until=event.valid_until,
-                          revision=event.revision, updated_at=int(self.clock()))
+            values = dict(
+                provider=event.provider,
+                subscription_id=event.subscription_id,
+                plan_id=event.plan_id,
+                status=event.status,
+                valid_until=event.valid_until,
+                revision=event.revision,
+                updated_at=int(self.clock()),
+            )
             if existing:
-                db.execute(update(b.subscriptions).where(b.subscriptions.c.household_id == event.household_id).values(**values))
+                db.execute(
+                    update(b.subscriptions)
+                    .where(b.subscriptions.c.household_id == event.household_id)
+                    .values(**values)
+                )
             else:
-                db.execute(insert(b.subscriptions).values(household_id=event.household_id, **values))
+                db.execute(
+                    insert(b.subscriptions).values(
+                        household_id=event.household_id, **values
+                    )
+                )
         result = {"accepted": True, "applied": bool(applied), "replayed": False}
-        db.execute(insert(b.events).values(provider=event.provider, event_id=event.event_id,
-            household_id=event.household_id, payload_hash=digest, result=result, created_at=int(self.clock())))
+        db.execute(
+            insert(b.events).values(
+                provider=event.provider,
+                event_id=event.event_id,
+                household_id=event.household_id,
+                payload_hash=digest,
+                result=result,
+                created_at=int(self.clock()),
+            )
+        )
         return result
 
     def entitlement(self, db, household_id: str, *, authorize) -> dict:
         authorize()  # Check current membership/role before reading billing state.
-        row = db.execute(select(b.subscriptions).where(b.subscriptions.c.household_id == household_id)).mappings().first()
+        row = (
+            db.execute(
+                select(b.subscriptions).where(
+                    b.subscriptions.c.household_id == household_id
+                )
+            )
+            .mappings()
+            .first()
+        )
         plan = self.plans.get(row["plan_id"]) if row else None
-        active = bool(row and plan and row["status"] == "active" and row["valid_until"] > self.clock())
-        return {"active": active, "plan_id": row["plan_id"] if row else None,
-                "provider": row["provider"] if row else None,
-                "status": row["status"] if row else "unconfigured",
-                "valid_until": row["valid_until"] if row else None,
-                "limits": {k: plan[k] for k in ("storage_bytes", "asset_limit", "frame_limit")} if active else None}
+        active = bool(
+            row
+            and plan
+            and row["status"] == "active"
+            and row["valid_until"] > self.clock()
+        )
+        return {
+            "active": active,
+            "plan_id": row["plan_id"] if row else None,
+            "provider": row["provider"] if row else None,
+            "status": row["status"] if row else "unconfigured",
+            "valid_until": row["valid_until"] if row else None,
+            "limits": {
+                k: plan[k] for k in ("storage_bytes", "asset_limit", "frame_limit")
+            }
+            if active
+            else None,
+        }
 
-    def check_quota(self, db, household_id: str, *, authorize, bytes_to_add=0, assets_to_add=0, frames_to_add=0) -> dict:
-        from release_backend.models import assets, frames, households
+    def storage_summary(self, db, household_id: str, *, authorize, hosted=True) -> dict:
+        """Original object accounting; callers must require household admin access.
+
+        Derived thumbnails, render caches, temporary exports and provider replica
+        overhead are operator costs, not this customer-facing byte measurement.
+        PostgreSQL independently enforces the administrative aggregate boundary.
+        """
+        from release_backend.models import assets, frames
+
         authorize()
-        if any(isinstance(v, bool) or not isinstance(v, int) or v < 0
-               for v in (bytes_to_add, assets_to_add, frames_to_add)):
-            raise BillingError("Quota increments must be nonnegative integers")
+        if db.dialect.name == "postgresql":
+            measured = (
+                db.execute(
+                    text("SELECT * FROM public.release_storage_usage(:hid)"),
+                    {"hid": household_id},
+                )
+                .mappings()
+                .one()
+            )
+            row = (
+                db.execute(
+                    text("SELECT * FROM public.release_quota_entitlement(:hid)"),
+                    {"hid": household_id},
+                )
+                .mappings()
+                .first()
+                if hosted
+                else None
+            )
+        else:
+            active_bytes, retained_bytes, active_assets = db.execute(
+                select(
+                    func.coalesce(
+                        func.sum(
+                            case(
+                                (assets.c.deleted.is_(False), assets.c.byte_size),
+                                else_=0,
+                            )
+                        ),
+                        0,
+                    ),
+                    func.coalesce(
+                        func.sum(
+                            case(
+                                (assets.c.deleted.is_(True), assets.c.byte_size),
+                                else_=0,
+                            )
+                        ),
+                        0,
+                    ),
+                    func.coalesce(
+                        func.sum(case((assets.c.deleted.is_(False), 1), else_=0)), 0
+                    ),
+                ).where(assets.c.household_id == household_id)
+            ).one()
+            measured = {
+                "active_bytes": active_bytes,
+                "retained_deleted_bytes": retained_bytes,
+                "total_bytes": active_bytes + retained_bytes,
+                "active_assets": active_assets,
+                "frame_count": db.execute(
+                    select(func.count())
+                    .select_from(frames)
+                    .where(frames.c.household_id == household_id)
+                ).scalar_one(),
+            }
+            row = (
+                db.execute(
+                    select(b.subscriptions).where(
+                        b.subscriptions.c.household_id == household_id
+                    )
+                )
+                .mappings()
+                .first()
+                if hosted
+                else None
+            )
+        plan = self.plans.get(row["plan_id"]) if row else None
+        limits = (
+            {key: plan[key] for key in ("storage_bytes", "asset_limit", "frame_limit")}
+            if plan
+            else None
+        )
+        active = (
+            bool(
+                row
+                and plan
+                and row["status"] == "active"
+                and row["valid_until"] > self.clock()
+            )
+            if hosted
+            else True
+        )
+        usage = {
+            key: int(measured[key])
+            for key in (
+                "active_bytes",
+                "retained_deleted_bytes",
+                "total_bytes",
+                "active_assets",
+            )
+        }
+        usage["frames"] = int(measured["frame_count"])
+        remaining = (
+            {
+                "storage_bytes": max(0, limits["storage_bytes"] - usage["total_bytes"]),
+                "assets": max(0, limits["asset_limit"] - usage["active_assets"]),
+                "frames": max(0, limits["frame_limit"] - usage["frames"]),
+            }
+            if limits
+            else None
+        )
+        return {
+            "household_id": household_id,
+            "accounting": "original_bytes",
+            "usage": usage,
+            "entitlement": {
+                "active": active,
+                "status": row["status"]
+                if row
+                else "unconfigured"
+                if hosted
+                else "self_hosted",
+                "plan_id": row["plan_id"] if row else None,
+                "valid_until": row["valid_until"] if row else None,
+            },
+            "limits": limits,
+            "remaining": remaining,
+            "deployment_mode": "hosted" if hosted else "self_hosted",
+        }
+
+    def check_quota(
+        self,
+        db,
+        household_id: str,
+        *,
+        authorize,
+        bytes_to_add=0,
+        assets_to_add=0,
+        frames_to_add=0,
+    ) -> dict:
+        from release_backend.models import assets, frames, households
+
+        authorize()
+        if any(
+            isinstance(v, bool) or not isinstance(v, int) or v < 0
+            for v in (bytes_to_add, assets_to_add, frames_to_add)
+        ):
+            raise BillingError(
+                "Quota increments must be nonnegative integers",
+                code="invalid_quota_request",
+                status=400,
+            )
         if db.dialect.name == "postgresql":
             # RLS intentionally hides ungranted collections and owner-only billing
             # rows. Bounded definer functions compute household quota atomically;
             # their raw counts are never returned through a member-facing API.
-            usage = db.execute(text("SELECT * FROM public.release_quota_usage(:hid)"), {"hid": household_id}).mappings().one()
-            row = db.execute(text("SELECT * FROM public.release_quota_entitlement(:hid)"), {"hid": household_id}).mappings().first()
+            usage = (
+                db.execute(
+                    text("SELECT * FROM public.release_quota_usage(:hid)"),
+                    {"hid": household_id},
+                )
+                .mappings()
+                .one()
+            )
+            row = (
+                db.execute(
+                    text("SELECT * FROM public.release_quota_entitlement(:hid)"),
+                    {"hid": household_id},
+                )
+                .mappings()
+                .first()
+            )
             plan = self.plans.get(row["plan_id"]) if row else None
-            active = bool(row and plan and row["status"] == "active" and row["valid_until"] > self.clock())
-            entitlement = {"active": active, "plan_id": row["plan_id"] if row else None,
+            active = bool(
+                row
+                and plan
+                and row["status"] == "active"
+                and row["valid_until"] > self.clock()
+            )
+            entitlement = {
+                "active": active,
+                "plan_id": row["plan_id"] if row else None,
                 "status": row["status"] if row else "unconfigured",
                 "valid_until": row["valid_until"] if row else None,
-                "limits": {k: plan[k] for k in ("storage_bytes", "asset_limit", "frame_limit")} if active else None}
-            used_bytes, used_assets, used_frames = usage["total_bytes"], usage["active_assets"], usage["frame_count"]
+                "limits": {
+                    k: plan[k] for k in ("storage_bytes", "asset_limit", "frame_limit")
+                }
+                if active
+                else None,
+            }
+            used_bytes, used_assets, used_frames = (
+                usage["total_bytes"],
+                usage["active_assets"],
+                usage["frame_count"],
+            )
         else:
-            db.execute(select(households.c.id).where(households.c.id == household_id).with_for_update()).first()
+            db.execute(
+                select(households.c.id)
+                .where(households.c.id == household_id)
+                .with_for_update()
+            ).first()
             entitlement = self.entitlement(db, household_id, authorize=lambda: None)
             # Soft deletion retains the original bytes until an explicit owner
             # purge; visible-only counting allows upload/delete quota bypass.
-            used_bytes, used_assets = db.execute(select(
-                func.coalesce(func.sum(assets.c.byte_size), 0),
-                func.coalesce(func.sum(case((assets.c.deleted == False, 1), else_=0)), 0)
-            ).where(assets.c.household_id == household_id)).one()
-            used_frames = db.execute(select(func.count()).select_from(frames).where(frames.c.household_id == household_id)).scalar_one()
+            used_bytes, used_assets = db.execute(
+                select(
+                    func.coalesce(func.sum(assets.c.byte_size), 0),
+                    func.coalesce(
+                        func.sum(case((assets.c.deleted.is_(False), 1), else_=0)), 0
+                    ),
+                ).where(assets.c.household_id == household_id)
+            ).one()
+            used_frames = db.execute(
+                select(func.count())
+                .select_from(frames)
+                .where(frames.c.household_id == household_id)
+            ).scalar_one()
+        if not self.plans or (
+            entitlement["plan_id"] is not None
+            and entitlement["plan_id"] not in self.plans
+        ):
+            raise BillingError(
+                "Hosted subscription limits require operator configuration",
+                code="billing_unavailable",
+                status=503,
+            )
         if not entitlement["active"]:
-            raise BillingError("An active hosted subscription is required for new content")
-        for used, added, key in ((used_bytes, bytes_to_add, "storage_bytes"),
-                                 (used_assets, assets_to_add, "asset_limit"),
-                                 (used_frames, frames_to_add, "frame_limit")):
+            raise BillingError(
+                "An active hosted subscription is required for new content. Ask an owner or administrator to review the subscription.",
+                code="subscription_required",
+                status=402,
+            )
+        for used, added, key in (
+            (used_bytes, bytes_to_add, "storage_bytes"),
+            (used_assets, assets_to_add, "asset_limit"),
+            (used_frames, frames_to_add, "frame_limit"),
+        ):
             if used + added > entitlement["limits"][key]:
-                raise BillingError("The configured subscription limit would be exceeded")
+                raise BillingError(
+                    {
+                        "storage_bytes": "This household’s storage limit would be exceeded. Ask an owner or administrator to review storage, including retained deleted photos.",
+                        "asset_limit": "This household’s active photo limit would be exceeded. Ask an owner or administrator to review the photo count.",
+                        "frame_limit": "This household’s frame limit would be exceeded. Ask an owner or administrator to review its frames.",
+                    }[key],
+                    code={
+                        "storage_bytes": "storage_quota_exceeded",
+                        "asset_limit": "asset_quota_exceeded",
+                        "frame_limit": "frame_quota_exceeded",
+                    }[key],
+                    status=409,
+                )
         return entitlement

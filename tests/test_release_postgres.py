@@ -726,3 +726,252 @@ def test_postgres_frame_schedule_write_uses_admin_scope_and_validates_before_upd
         ).status_code
         == 404
     )
+
+
+def test_postgres_administrative_storage_summary_cannot_be_called_by_partial_members(
+    postgres_scope,
+):
+    app = postgres_scope["app"]
+    app.config["BILLING_PLANS"] = [
+        {
+            "id": "storage-plan",
+            "name": "Storage test",
+            "storage_bytes": 1000,
+            "asset_limit": 5,
+            "frame_limit": 2,
+        }
+    ]
+    with postgres_scope["owner"].transaction() as db:
+        db.execute(
+            insert(m.households).values(
+                id="storage-household", name="Storage", settings={}, created_at=1
+            )
+        )
+        for identity, role in [("owner-a", "owner"), ("reader", "member")]:
+            db.execute(
+                insert(m.memberships).values(
+                    id=identity + "-storage",
+                    household_id="storage-household",
+                    user_id=identity,
+                    role=role,
+                    active=True,
+                )
+            )
+        for cid in ["storage-visible", "storage-hidden"]:
+            db.execute(
+                insert(m.collections).values(
+                    id=cid, household_id="storage-household", name=cid, settings={}
+                )
+            )
+        db.execute(
+            insert(m.collection_grants).values(
+                id="storage-visible-reader",
+                household_id="storage-household",
+                membership_id="reader-storage",
+                collection_id="storage-visible",
+                role="contributor",
+            )
+        )
+        for aid, cid, size, removed in [
+            ("storage-active", "storage-visible", 200, False),
+            ("storage-retained", "storage-hidden", 300, True),
+        ]:
+            db.execute(
+                insert(m.assets).values(
+                    id=aid,
+                    household_id="storage-household",
+                    collection_id=cid,
+                    filename=aid + ".jpg",
+                    storage_key="storage-household/" + aid,
+                    byte_size=size,
+                    mime_type="image/jpeg",
+                    metadata={},
+                    deleted=removed,
+                    created_at=1,
+                )
+            )
+        db.execute(
+            insert(b.subscriptions).values(
+                household_id="storage-household",
+                provider="fixture",
+                subscription_id="storage-subscription",
+                plan_id="storage-plan",
+                status="active",
+                valid_until=postgres_scope["now"] + 3600,
+                revision=1,
+                updated_at=1,
+            )
+        )
+    path = "/api/v1/households/storage-household/storage"
+    client = app.test_client()
+    assert (
+        client.get(path, headers={"Authorization": "Bearer reader-token"}).status_code
+        == 403
+    )
+    data = client.get(path, headers={"Authorization": "Bearer owner-a-token"})
+    assert data.status_code == 200, data.json
+    assert data.json["usage"] == {
+        "active_bytes": 200,
+        "retained_deleted_bytes": 300,
+        "total_bytes": 500,
+        "active_assets": 1,
+        "frames": 0,
+    }
+    assert data.json["remaining"] == {"storage_bytes": 500, "assets": 4, "frames": 2}
+    with pytest.raises(DBAPIError):
+        with postgres_scope["application"].transaction(
+            user_id="reader", household_id="storage-household"
+        ) as db:
+            db.execute(
+                text("SELECT * FROM release_storage_usage(:hid)"),
+                {"hid": "storage-household"},
+            ).all()
+    with pytest.raises(DBAPIError):
+        with postgres_scope["application"].transaction(
+            user_id="owner-a", household_id="a"
+        ) as db:
+            db.execute(
+                text("SELECT * FROM release_storage_usage(:hid)"),
+                {"hid": "storage-household"},
+            ).all()
+    with pytest.raises(DBAPIError):
+        with postgres_scope["billing"].transaction() as db:
+            db.execute(
+                text("SELECT * FROM release_storage_usage(:hid)"),
+                {"hid": "storage-household"},
+            ).all()
+    with postgres_scope["owner"].transaction() as db:
+        db.execute(
+            update(m.memberships)
+            .where(m.memberships.c.id == "reader-storage")
+            .values(role="admin")
+        )
+    assert (
+        client.get(path, headers={"Authorization": "Bearer reader-token"}).json["usage"]
+        == data.json["usage"]
+    )
+    with postgres_scope["owner"].transaction() as db:
+        db.execute(
+            update(m.memberships)
+            .where(m.memberships.c.id == "reader-storage")
+            .values(role="member")
+        )
+
+
+def test_postgres_purge_receipts_remain_administrative_and_tenant_scoped(
+    postgres_scope,
+):
+    client = postgres_scope["app"].test_client()
+    path = "/api/v1/households/storage-household/collections/storage-hidden/assets/storage-retained/purge"
+    owner = {"Authorization": "Bearer owner-a-token"}
+    response = client.post(path, headers=owner, json={"confirm_permanent_delete": True})
+    assert response.status_code == 202, response.json
+    assert "storage_key" not in response.get_data(as_text=True)
+    assert (
+        client.post(
+            path,
+            headers={"Authorization": "Bearer reader-token"},
+            json={"confirm_permanent_delete": True},
+        ).status_code
+        == 403
+    )
+    assert (
+        client.get(
+            "/api/v1/households/storage-household/collections/storage-hidden/trash",
+            headers={"Authorization": "Bearer reader-token"},
+        ).status_code
+        == 403
+    )
+    with postgres_scope["application"].transaction(
+        user_id="reader", household_id="storage-household"
+    ) as db:
+        assert not db.execute(select(m.media_purges)).first()
+    with postgres_scope["application"].transaction(
+        user_id="owner-a", household_id="a"
+    ) as db:
+        assert not db.execute(select(m.media_purges)).first()
+    with postgres_scope["application"].transaction(
+        user_id="owner-a", household_id="storage-household"
+    ) as db:
+        assert db.execute(select(m.media_purges.c.id)).scalars().all() == [
+            response.json["purge"]["id"]
+        ]
+    with pytest.raises(DBAPIError):
+        with postgres_scope["application"].transaction(
+            user_id="reader", household_id="storage-household"
+        ) as db:
+            db.execute(
+                insert(m.media_purges).values(
+                    id="forged-purge",
+                    household_id="storage-household",
+                    collection_id="storage-visible",
+                    asset_id="storage-active",
+                    requested_by="reader",
+                    storage_key="attacker-key",
+                    state="queued",
+                    created_at=1,
+                )
+            )
+
+
+def test_postgres_concurrent_contributors_cannot_spend_same_storage_allowance(
+    postgres_scope,
+):
+    import io
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    from PIL import Image
+
+    app = postgres_scope["app"]
+    output = io.BytesIO()
+    Image.new("RGB", (12, 12), "blue").save(output, format="PNG")
+    photo = output.getvalue()
+    before = (
+        app.test_client()
+        .get(
+            "/api/v1/households/storage-household/storage",
+            headers={"Authorization": "Bearer owner-a-token"},
+        )
+        .json["usage"]["total_bytes"]
+    )
+    old_plans = app.config["BILLING_PLANS"]
+    app.config["BILLING_PLANS"] = [
+        {
+            "id": "storage-plan",
+            "name": "Storage test",
+            "storage_bytes": before + len(photo),
+            "asset_limit": 5,
+            "frame_limit": 2,
+        }
+    ]
+    barrier = Barrier(2)
+
+    def contribute(identity):
+        barrier.wait(timeout=10)
+        response = app.test_client().post(
+            "/api/v1/households/storage-household/collections/storage-visible/assets",
+            headers={"Authorization": "Bearer " + identity + "-token"},
+            data={"file": (io.BytesIO(photo), identity + ".png")},
+        )
+        return response.status_code, response.json
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(contribute, ["owner-a", "reader"]))
+        assert sorted(status for status, data in results) == [201, 409], results
+        assert (
+            next(data for status, data in results if status == 409)["error"]["code"]
+            == "storage_quota_exceeded"
+        )
+        after = (
+            app.test_client()
+            .get(
+                "/api/v1/households/storage-household/storage",
+                headers={"Authorization": "Bearer owner-a-token"},
+            )
+            .json
+        )
+        assert after["usage"]["total_bytes"] == before + len(photo)
+        assert after["remaining"]["storage_bytes"] == 0
+    finally:
+        app.config["BILLING_PLANS"] = old_plans

@@ -411,6 +411,7 @@ struct ConnectionAccountView: View {
             if connection.identity?.user.emailVerified == false { EmailVerificationSection() }
             Section {
                 NavigationLink("Signed-In Devices") { DeviceSessionsView() }
+                if connection.scope?.administrator == true { NavigationLink("Household Storage") { HouseholdStorageView() } }
                 if connection.scope?.administrator == true && connection.scope?.frame != nil { NavigationLink("Set Up Display") { FrameEnrollmentView() } }
                 NavigationLink("Set Up Authenticator") { Form { MFAEnrollmentSection() }.navigationTitle("Authenticator Setup") }
             }

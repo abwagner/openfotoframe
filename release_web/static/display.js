@@ -7,6 +7,7 @@ const message = document.getElementById('display-message');
 const controls = document.querySelector('.controls');
 const csrf = document.querySelector('meta[name="csrf-token"]').content;
 const artSurface = document.getElementById('art-surface');
+let playlistETag = null;
 let artHost = null, current = null, lastSlide = '', loaded = null, advance = null, active = true, busy = false, hide = null;
 
 async function read(response) {
@@ -26,7 +27,7 @@ function scheduleAdvance(data) {
     advance = setTimeout(() => control('next').catch(showFailure), Math.max(1, Math.min(86400, seconds)) * 1000);
 }
 function showFailure(error) {
-    stopAdvance(); image.removeAttribute('src'); lastSlide = '';
+    stopAdvance(); image.removeAttribute('src'); lastSlide = ''; current = null; playlistETag = null;
     if (image.dataset.blob) { URL.revokeObjectURL(image.dataset.blob); delete image.dataset.blob; }
     artHost?.dispose(); artHost = null; artSurface.hidden = true;
     message.textContent = error.message || 'Cannot connect to this frame.';
@@ -35,7 +36,13 @@ async function refresh() {
     if (busy || !active) return;
     busy = true;
     try {
-        const data = await read(await fetch('/frame/playlist' + query));
+        const response = await fetch('/frame/playlist' + query, {headers: playlistETag ? {'If-None-Match': playlistETag} : {}});
+        if (response.status === 304) {
+            if (!current) throw new Error('Refresh this frame to reload its playlist.');
+            return;
+        }
+        const data = await read(response);
+        playlistETag = response.headers.get('ETag');
         if (!active) return;
         current = data;
         document.getElementById('pause-btn').textContent = data.state.paused ? '▶ Play' : '⏸ Pause';

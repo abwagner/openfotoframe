@@ -75,6 +75,12 @@ struct UploadView: View {
                     if reviewed { Text("You can upload similar or low-resolution photos if you want to keep them.").font(.footnote).foregroundStyle(.secondary) }
                 }
             }
+            if let release = session.release {
+                Section("Storage and upload limits") {
+                    if release.scope?.administrator == true { NavigationLink("Household Storage") { HouseholdStorageView() } }
+                    else { Text("If household storage is full or uploads are paused, ask the household owner or administrator to review storage and the subscription.").font(.footnote).foregroundStyle(.secondary) }
+                }
+            }
             Section {
                 Button("Open Web Upload", systemImage: "globe") { web = .init(title: "Web Upload", path: "upload") }
             }

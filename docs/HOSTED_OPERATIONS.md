@@ -103,13 +103,12 @@ keys or production endpoints are bundled.
 
 ## Release gates
 
-Queued collection exports are persisted in the relational store. The bounded
-`scripts/release_worker.py --job ID --household ID --user ID` entry point reloads
-that exact job and revalidates current account, membership and collection access
-before reading media or delivering the result. It uses the normal RLS application
-role. Configure a durable dispatch/retry supervisor separately before hosted use;
-this repository does not install a background service or run queued jobs on a live
-server. Result download rechecks the same current permissions.
+Queued exports and explicit photo purges use durable bounded dispatch described in
+[RELEASE_WORKERS.md](RELEASE_WORKERS.md). The opt-in worker supports one-pass and
+supervisor modes with leases, finite execution retries and export expiry cleanup.
+It uses a separate execute-only PostgreSQL dispatcher identity and ordinary RLS
+application execution identity. Schema version 002 is an explicit offline step;
+HTTP startup performs no automatic upgrade or background-service installation.
 
 1. Rehearse the offline import/verification and complete snapshot restore described
    in `RELEASE_MIGRATION.md`; preserve the old service until an explicit cutover.

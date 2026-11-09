@@ -258,7 +258,15 @@ def frame_playlist():
         response["artwork"] = next(
             item for item in catalog() if item["id"] == response["art"]["artwork_id"]
         )
-    return jsonify(response)
+    result = jsonify(response)
+    # Reauthorize and rebuild before evaluating the validator: a prior tag is
+    # never authority to retrieve a revoked frame or collection.
+    tag = hashlib.sha256(result.get_data()).hexdigest()
+    result.set_etag(tag)
+    if request.if_none_match.contains(tag):
+        result.status_code = 304
+        result.set_data(b"")
+    return result
 
 
 @display_pages.post("/frame/control")

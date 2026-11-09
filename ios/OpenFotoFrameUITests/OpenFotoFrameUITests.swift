@@ -52,6 +52,16 @@ final class OpenFotoFrameUITests: XCTestCase {
         app.buttons["Connection & Access"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["connectionAccount"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["connectionCollection"].exists)
+        for _ in 0..<4 where !app.buttons["Household Storage"].exists { app.swipeUp() }
+        app.buttons["Household Storage"].tap()
+        XCTAssertTrue(app.navigationBars["Household Storage"].waitForExistence(timeout: 10))
+        for _ in 0..<4 where !app.descendants(matching: .any)["storageRetainedBytes"].waitForExistence(timeout: 1) { app.swipeUp() }
+        XCTAssertTrue(app.descendants(matching: .any)["storageRetainedBytes"].exists)
+        let deletedLink = app.descendants(matching: .any)["reviewDeletedPhotos"]
+        for _ in 0..<4 where !deletedLink.exists { app.swipeUp() }
+        deletedLink.tap()
+        XCTAssertTrue(app.navigationBars["Deleted Photos"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Native API v1 scoped connection"
         attachment.lifetime = .keepAlways

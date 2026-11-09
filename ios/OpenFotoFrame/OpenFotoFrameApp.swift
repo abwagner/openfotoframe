@@ -3,14 +3,16 @@ import SwiftUI
 @main
 struct OpenFotoFrameApp: App {
     @StateObject private var session = FrameSession()
+    @StateObject private var connection = ReleaseSession()
+    @StateObject private var purchases = StoreKitPurchases()
     var body: some Scene {
         WindowGroup {
-            RootView().environmentObject(session).tint(.teal)
+            RootView().environmentObject(session).environmentObject(connection).environmentObject(purchases).tint(.teal)
         }
     }
 }
 
-struct RootView: View {
+struct LegacyRootView: View {
     @EnvironmentObject private var session: FrameSession
     @State private var starting = true
     var body: some View {

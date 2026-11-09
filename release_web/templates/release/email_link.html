@@ -1,0 +1,24 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="{{ url_for('release_recovery.static', filename='email-link.js') }}"></script>
+<title>{{ 'Verify email' if kind == 'verify' else 'Recover account' }} · OpenFotoFrame</title>
+<link rel="stylesheet" href="{{ url_for('release_pages.static', filename='portal.css') }}"></head><body><main>
+<h1>{{ 'Verify your email' if kind == 'verify' else 'Recover your account' }}</h1>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+{% if completed %}<p>{{ 'Your email is verified.' if kind == 'verify' else 'Your password was changed. Sign in again with your new password and required authenticator.' }}</p><a href="/login">Sign in</a>
+{% else %}
+{% if requested %}<p>{{ 'A verification message was requested.' if kind == 'verify' else 'If recovery is available for this account, instructions will be sent. Otherwise contact your server operator.' }}</p>{% endif %}
+{% if kind == 'verify' %}<p>Sign in to the account receiving this email before confirming. If needed, sign in in another tab, then reopen the email link.</p><p><a href="/login" target="_blank" rel="noopener">Sign in in another tab</a></p>
+{% else %}<p>Set a new password with at least 12 characters. Existing authenticators remain required. This link does not grant access to another account.</p>{% endif %}
+<form method="post" action="/{{ kind }}" autocomplete="off">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="complete">
+<input type="hidden" id="email-link-token" name="token" value="{{ token }}">
+{% if kind == 'recover' %}<label>New password<input type="password" name="password" autocomplete="new-password" minlength="12" required></label>
+<label>Authenticator or recovery code, if enrolled<input name="code" autocomplete="one-time-code"></label>{% endif %}
+<button id="complete-link" disabled>{{ 'Confirm email address' if kind == 'verify' else 'Change password' }}</button></form>
+<noscript><p>Enable JavaScript to open this private email link. The link is not consumed automatically.</p></noscript>
+<hr><h2>{{ 'Request another verification email' if kind == 'verify' else 'Request a recovery email' }}</h2>
+<form method="post" action="/{{ kind }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="request">
+{% if kind == 'recover' %}<label>Email<input type="email" name="email" autocomplete="email" required></label>{% endif %}
+<button>Send instructions</button></form>
+{% endif %}</main></body></html>

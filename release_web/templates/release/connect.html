@@ -1,0 +1,10 @@
+{% extends 'release/base.html' %}{% block head %}<script src="{{ url_for('release_pages.static', filename='connect.js') }}" defer></script>{% endblock %}
+{% block content %}<h1>Open your frame connection</h1>
+<p id="link-error" role="alert"></p><section id="connection" hidden>
+<p id="purpose"></p><dl><dt>Service</dt><dd id="mode"></dd><dt>Destination server</dt><dd id="destination"></dd></dl>
+<p>Confirm that you trust this destination before continuing. You will sign in to that server; this page does not grant access.</p><p id="transport"></p>
+<label><input type="checkbox" id="confirm-destination"> I recognize this server.</label>
+<a class="button" id="open-app" aria-disabled="true">Continue in OpenFotoFrame</a>
+<form id="browser-form" method="post" hidden><input type="hidden" name="token" id="invite-token"><button id="continue-browser" disabled>Continue in browser</button></form>
+<p>If the app is not installed, install it and reopen this invitation. You can also scan the original QR code or enter the server address manually.</p>
+</section><noscript>Open or scan this connection in the OpenFotoFrame app. This page needs JavaScript to read the private connection details stored in the link fragment.</noscript>{% endblock %}

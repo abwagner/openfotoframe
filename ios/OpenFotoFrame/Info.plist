@@ -18,6 +18,14 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>FramePasskeyDomain</key>
 	<string>$(FRAME_PASSKEY_DOMAIN)</string>
+	<key>FrameAllowsExternalCheckout</key>
+	<false/>
+	<key>FrameHostedServerURL</key>
+	<string>$(FRAME_HOSTED_SERVER_URL)</string>
+	<key>FrameInviteURL</key>
+	<string>$(FRAME_INVITE_URL)</string>
+	<key>CFBundleURLTypes</key>
+	<array><dict><key>CFBundleURLName</key><string>OpenFotoFrame Setup</string><key>CFBundleURLSchemes</key><array><string>openfotoframe</string></array></dict></array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
@@ -28,7 +36,7 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Take a photo to upload to your frame from the web upload screen.</string>
+	<string>Scan an OpenFotoFrame setup, invitation, or quick-login code, or take a photo to upload.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Connect to your OpenFotoFrame server on your home network.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

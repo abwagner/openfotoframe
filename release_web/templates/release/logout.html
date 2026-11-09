@@ -1,0 +1,1 @@
+{% extends 'release/base.html' %}{% block content %}<h1>Sign out?</h1><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button>Sign out of this device</button></form><a href="/workspace">Keep signed in</a>{% endblock %}

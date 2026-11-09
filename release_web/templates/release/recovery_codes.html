@@ -1,0 +1,2 @@
+{% extends 'release/base.html' %}{% block content %}<h1>Save your recovery codes</h1><p>These codes are shown once. Store them somewhere private before continuing. Each code can be used once if you lose your authenticator.</p><pre>{% for code in codes %}{{ code }}
+{% endfor %}</pre><a class="button" href="{{ destination }}">I saved my codes</a>{% endblock %}

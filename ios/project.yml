@@ -9,6 +9,8 @@ settings:
     TARGETED_DEVICE_FAMILY: "1,2"
     SUPPORTS_MACCATALYST: false
     FRAME_PASSKEY_DOMAIN: ""
+    FRAME_HOSTED_SERVER_URL: ""
+    FRAME_INVITE_URL: ""
 targets:
   OpenFotoFrame:
     type: application
@@ -71,3 +73,12 @@ schemes:
         FRAME_TEST_SERVER: http://127.0.0.1:5059
         FRAME_TEST_USERNAME: admin
         FRAME_TEST_PASSWORD: ios-integration-password
+
+  OpenFotoFrameReleaseIntegration:
+    build:
+      targets:
+        OpenFotoFrame: all
+    test:
+      targets: [OpenFotoFrameTests, OpenFotoFrameUITests]
+      environmentVariables:
+        FRAME_TEST_RELEASE_SERVER: http://127.0.0.1:5081

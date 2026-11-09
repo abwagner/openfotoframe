@@ -181,3 +181,90 @@ The **OpenFotoFrameTailscale** scheme includes a read-only UI check of the actua
 Tailscale server. Run only `testTailscaleConnectionWithoutSignIn` to verify that
 launch reaches the native gallery without showing a web sign-in screen. This
 requires Tailscale connectivity and does not upload, edit, or delete server data.
+
+## Hosted and self-hosted onboarding (local development)
+
+The release client starts with **OpenFotoFrame Cloud**, **Your own server**, and
+QR/link import. Generic builds intentionally have no hosted-service endpoint.
+Configure `FRAME_HOSTED_SERVER_URL` and `FRAME_INVITE_URL` for the intended
+service; do not use a personal server as a public default. `project-links.yml`
+adds an `applinks` entitlement only after a project-controlled invitation domain
+is selected. Its AASA document must identify the signing team and
+`tech.swagner.openfotoframe`, with `/connect` supported. Regenerating `project.yml`
+returns to the generic project without associated domains. Arbitrary HTTPS servers can advertise system-browser PKCE sign-in, including
+first-party passkeys; this does not require an app-associated domain for each server.
+
+Setup, invitation, and quick-login links use:
+
+```text
+https://invite.example.com/connect#v=1&purpose=invite&mode=self_hosted&server=https%3A%2F%2Fframe.example.com&token=OPAQUE_SECRET
+openfotoframe://connect#v=1&purpose=setup&mode=self_hosted&server=https%3A%2F%2Fframe.example.com
+```
+
+All payload fields are in the fragment. Setup links have no token; invitations
+require a token; pairing requires `id` and `token` (a short-lived pairing code).
+HTTPS landing links must match the configured invitation host. Pasting/scanning a
+link never fetches its destination until the user confirms it. Public servers
+require HTTPS. Local HTTP requires explicit confirmation before any request.
+
+Saved connection metadata is stored in UserDefaults. Access and rotated refresh
+credentials are scoped to canonical server origin plus account ID and stored in
+Keychain with `WhenUnlockedThisDeviceOnly` protection. They are also bound to the
+server's stable identity. Passwords are never retained. Each connection owns an
+immutable-origin URLSession; the app uses ephemeral WebKit data per selected
+scope. Native API requests use bearer credentials and explicit household,
+collection, and frame headers. Advanced editors redeem a short-lived, one-use
+web bridge by same-origin native POST with automatic redirects disabled. Only
+the three validated exact-host bridge cookies enter the selected scope’s ephemeral
+WebKit store before the advanced page loads. The page then uses the scoped
+cookie/CSRF web session.
+Credentials never appear in browser URLs or JavaScript storage.
+
+The existing `frameServer` preference is imported once as an **Existing frame**
+profile. It does not imply a first-party account or grant permissions. Older
+servers remain available through explicitly selected **Existing Web Companion**
+compatibility; the new native sign-in requires API v1. No changes are applied to
+an existing server or its library by opening the app.
+
+`ConnectionTests` cover link parsing, credential scoping, metadata migration,
+delayed responses during connection switching, and local HTTP confirmation.
+Use the isolated integration fixture and a dedicated simulator for native/web
+editor regression checks. No release, deployment, or TestFlight upload is part of
+these development commands.
+
+For the new native sign-in and selected collection/frame smoke test, start a
+separate disposable API v1 fixture:
+
+```sh
+.venv/bin/python ios/scripts/release_integration_server.py
+xcodebuild -project ios/OpenFotoFrame.xcodeproj -scheme OpenFotoFrameReleaseIntegration \
+  -destination 'platform=iOS Simulator,name=YOUR_DEDICATED_SIMULATOR' \
+  -parallel-testing-enabled NO -only-testing:OpenFotoFrameTests \
+  -only-testing:OpenFotoFrameUITests/OpenFotoFrameUITests/testHostingChoiceAndExplicitLocalHTTPConfirmation \
+  -only-testing:OpenFotoFrameUITests/OpenFotoFrameUITests/testReleaseNativeLoginAndScopedGallery test
+```
+
+The fixture imports only repository code, creates temporary relational/media
+storage, binds localhost port 5081, and seeds an owner, collection, frame, and
+geometric photo. It never uses deployment databases, accounts, or photos. Its
+credentials are test fixtures, not application defaults. Hosted billing displays
+only server-configured plans; checkout is unavailable without a configured
+provider. Checkout opens an explicitly confirmed HTTPS provider URL in the system
+browser and uses a stable request idempotency key across retries. No subscription
+is activated by a client redirect or a successful checkout-screen dismissal.
+
+Keep simulator ad-hoc signing enabled for the API v1 smoke test: the native client uses the real Keychain, and an unsigned simulator application cannot access its credential records. This does not require distribution signing or upload.
+
+### Hosted subscriptions and browser sign-in
+
+The native app uses StoreKit 2 for Apple subscriptions, loading only product identifiers configured by the central service. Apple transaction proof is accepted only for the exact HTTPS origin configured in `FrameHostedServerURL`; self-hosted and invitation-supplied servers cannot receive App Store proof. Each purchase intent returns a server-generated, permanently household-bound `appAccountToken`. Purchase, restore and unfinished transactions require backend verification before the transaction is finished or the UI reports an active subscription. Switching connection/account/scope during purchase prevents submission to the new connection. Unfinished transactions remain available for an explicit retry. Stripe checkout remains supported by the website; native external checkout is disabled by default (`FrameAllowsExternalCheckout=false`) pending storefront and distribution policy review.
+
+Before release, configure real App Store Connect subscription products, bundle/environment identifiers, server Apple verification credentials and notification endpoints. Exercise sandbox purchase, Ask to Buy pending, cancellation, renewal/refund, restore and a switched household/account on physical devices. Local builds do not activate providers or perform purchases.
+
+HTTPS servers advertising `auth_code_pkce` also offer system-browser sign-in, including server passkeys. The app generates a random verifier and state, opens only the selected server’s `/authorize/<request>` route in an ephemeral `ASWebAuthenticationSession`, validates the exact callback state and issuer, then redeems the one-use code with its verifier. Callback codes are not bearer credentials. Password/MFA native sign-in and QR approval remain available; HTTP compatibility servers do not receive passkey/browser authorization.
+
+Frame owners can use **Connection & Access → Set Up Display** to create a two-minute enrollment code. The physical display opens `/display/enroll` and enters the code; the code is never appended to a URL. Credentials can be revoked from the same screen. No physical TV is contacted by the app’s enrollment preparation.
+
+The native API v1 integration fixture uses port **5081**. Do not change it to 5060/5061: browser engines block those SIP ports, producing an empty web document even though native API requests succeed. The integration test exercises real Keychain sign-in, scoped native gallery/media, upload preflight/upload, explicit-frame pause/play, denial without a selected frame, and the cookie-bridged advanced crop editor.
+
+Apple restore and unfinished-transaction retry read the selected existing household’s permanent account token using owner-only `GET /billing/apple/account`; this read never creates a household, account token or purchase intent. The app filters verified StoreKit transactions by that token and the configured product ID, then sends their signed proof to the same central origin. Active households retain Restore/Manage controls while new purchase buttons are disabled. An active subscription does not prevent a legitimate restore through the original provider.

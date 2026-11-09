@@ -1,0 +1,68 @@
+# Local hosted-mode integration template, not a production deployment recipe.
+# Schema bootstrap and RLS run separately using the schema-owner identity.
+services:
+  database:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: openfotoframe_rehearsal
+      POSTGRES_USER: release_schema_owner
+      POSTGRES_PASSWORD: ${RELEASE_SCHEMA_PASSWORD:?Set an isolated rehearsal database password}
+    volumes:
+      - release-rehearsal-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U release_schema_owner -d openfotoframe_rehearsal"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  frame:
+    build:
+      context: ../..
+      dockerfile: deploy/release/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8060:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      RELEASE_MODE: hosted
+      PUBLIC_ORIGIN: ${RELEASE_PUBLIC_ORIGIN:?Set an HTTPS rehearsal origin}
+      DATABASE_URL: ${RELEASE_APP_DATABASE_URL:?Set the non-owner application-role PostgreSQL URL}
+      STORAGE_BACKEND: s3
+      S3_BUCKET: ${RELEASE_PRIVATE_S3_BUCKET:?Set a private staging bucket with Block Public Access}
+      S3_PREFIX: ${RELEASE_PRIVATE_S3_PREFIX:-rehearsal}
+      S3_ENDPOINT_URL: ${RELEASE_S3_ENDPOINT_URL:-}
+      SECRET_KEY: ${RELEASE_SECRET_KEY:?Set a private random session key}
+      MFA_ENCRYPTION_KEY: ${RELEASE_MFA_ENCRYPTION_KEY:?Set a private Fernet key}
+      REGISTER_ENABLED: "false"
+      # Empty credentials keep paid purchasing disabled. Values are supplied by
+      # a private env file; Apple DER roots/API key require private read-only
+      # mounts in an operator override, never additions to the build context.
+      BILLING_DATABASE_URL: ${RELEASE_BILLING_DATABASE_URL:-}
+      BILLING_PLANS: ${RELEASE_BILLING_PLANS:-[]}
+      BILLING_CHECKOUT_HOSTS: ${RELEASE_BILLING_CHECKOUT_HOSTS:-[]}
+      STRIPE_SECRET_KEY: ${RELEASE_STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${RELEASE_STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_SUCCESS_URL: ${RELEASE_STRIPE_SUCCESS_URL:-}
+      STRIPE_CANCEL_URL: ${RELEASE_STRIPE_CANCEL_URL:-}
+      STRIPE_LIVE_MODE: ${RELEASE_STRIPE_LIVE_MODE:-false}
+      APPLE_BUNDLE_ID: ${RELEASE_APPLE_BUNDLE_ID:-}
+      APPLE_APP_ID: ${RELEASE_APPLE_APP_ID:-}
+      APPLE_ENVIRONMENT: ${RELEASE_APPLE_ENVIRONMENT:-}
+      APPLE_ROOT_CERTIFICATES: ${RELEASE_APPLE_ROOT_CERTIFICATES:-[]}
+      APPLE_SIGNING_KEY_PATH: ${RELEASE_APPLE_SIGNING_KEY_PATH:-}
+      APPLE_KEY_ID: ${RELEASE_APPLE_KEY_ID:-}
+      APPLE_ISSUER_ID: ${RELEASE_APPLE_ISSUER_ID:-}
+    volumes:
+      - release-rehearsal-media:/data
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=128m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+volumes:
+  release-rehearsal-postgres:
+  release-rehearsal-media:

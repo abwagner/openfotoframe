@@ -42,3 +42,4 @@ xcuserdata/
 *.mobileprovision
 ios/OpenFotoFrame/Passkeys.entitlements
 ios/Signing.local.xcconfig
+ios/OpenFotoFrame/Links.entitlements

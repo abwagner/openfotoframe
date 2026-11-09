@@ -1,0 +1,21 @@
+{% extends 'release/base.html' %}{% block content %}
+<h1>Collection exports and restore</h1>
+<p>Household: {{ household_id }}<br>Selected collection: {{ collection_id }}</p>
+<p><a href="/workspace">Choose another collection</a> · <a href="/upload">Return to photos</a></p>
+<h2>Export this collection</h2>
+<p>An export contains this collection's photos, metadata and layouts. It does not contain account credentials, other collections or server configuration.</p>
+<p>Exports are queued for a separately configured background worker. A queued export stays queued until that worker processes it. Refresh this page to check status; this screen does not start a worker.</p>
+<form method="post" action="/backup"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="export"><button>Queue collection export</button></form>
+<h2>Your exports for this collection</h2>
+{% if jobs %}{% for job in jobs %}<article><p>Export {{ job.id }}: <strong>{{ job.state }}</strong></p>
+{% if job.state == 'queued' %}<p>Waiting for the background worker.</p>{% elif job.state == 'failed' %}<p>The export could not be completed. Current access and configured export limits may prevent it.</p>{% elif job.download_path %}<p><a href="/backup/jobs/{{ job.id }}/download">Download private archive</a></p>{% endif %}
+<form method="post" action="/backup/jobs/{{ job.id }}/delete"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="secondary">Remove export</button></form></article>{% endfor %}
+{% else %}<p>You have no exports for this collection.</p>{% endif %}
+<p>Downloads check your current collection access. Archives expire after 24 hours; remove unneeded exports.</p>
+<h2>Restore into this collection</h2>
+<p>Household administrators with edit access can restore an OpenFotoFrame collection archive into this existing collection. Imported photos receive new identifiers. Archive data cannot create accounts or grant access.</p>
+{% if restored %}<p role="status">Restored {{ restored.asset_count }} photos and {{ restored.group_count }} layouts into the selected collection.</p>{% endif %}
+<form method="post" action="/backup" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="restore">
+<label>Collection archive<input type="file" name="file" accept=".zip,application/zip" required></label>
+<label><input type="checkbox" name="confirm_restore" value="yes" required>Restore into the selected collection shown above.</label><button>Restore collection archive</button></form>
+{% endblock %}

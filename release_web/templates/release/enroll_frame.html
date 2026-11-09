@@ -1,0 +1,4 @@
+{% extends 'release/base.html' %}{% block content %}<h1>Set up this display</h1>
+<p>On an owner’s signed-in device, create a setup code for this frame. Enter the code here within two minutes.</p>
+<form method="post"><label>Frame setup code<input name="token" autocomplete="off" required maxlength="200"></label><button>Connect this display</button></form>
+<p>The display receives access only to the collections assigned to that frame.</p>{% endblock %}

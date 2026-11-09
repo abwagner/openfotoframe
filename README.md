@@ -16,6 +16,16 @@ A self-hosted photo frame for Raspberry Pi and Linux, managed from a browser or 
 - Schedule TV power with HDMI-CEC.
 - Back up photos and settings to Dropbox.
 
+## General-release work
+
+An opt-in release server and native onboarding support both a paid hosted service
+and independently hosted servers. They are separate from the legacy installation
+below and are not enabled by updating this checkout. See [release readiness](docs/RELEASE_READINESS.md),
+[architecture and access control](docs/RELEASE_ARCHITECTURE.md),
+[migration rehearsal](docs/RELEASE_MIGRATION.md), and [hosted operations](docs/HOSTED_OPERATIONS.md).
+Paid launch and production migration remain gated; the release backend does not
+yet execute physical TV power schedules or install a durable export worker.
+
 ## Install
 
 Use a Linux machine; a desktop environment is needed only for a local Chromium kiosk.

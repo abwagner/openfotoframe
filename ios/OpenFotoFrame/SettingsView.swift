@@ -6,6 +6,9 @@ struct SettingsView: View {
     @State private var disconnecting = false
     var body: some View {
         List {
+            if session.release != nil {
+                Section { NavigationLink { ConnectionAccountView() } label: { Label("Connection & Access", systemImage: "person.crop.circle.badge.checkmark") } }
+            }
             Section("Connected Frame") {
                 Label(session.server?.url.host ?? "OpenFotoFrame", systemImage: "network")
                 LabeledContent("Access", value: session.isAdmin ? "Administrator" : "User")
@@ -15,7 +18,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier("accountAccess")
             }
             Section("Presentation") {
-                NavigationLink { AppearanceView() } label: { Label("Mat & Slideshow", systemImage: "photo.artframe") }
+                NavigationLink { AppearanceView() } label: { Label("Mat & Slideshow", systemImage: "photo.artframe") }.disabled(!session.canManageCollection)
                 Button { web = .init(title: "Full Frame Editor", path: "upload") } label: {
                     Label("Full Gallery & Group Editor", systemImage: "slider.horizontal.3")
                 }
@@ -26,11 +29,12 @@ struct SettingsView: View {
                 }
             }
             Section("Account & Security") {
-                Button { web = .init(title: "Change Password", path: "change-password") } label: {
-                    Label("Change Password", systemImage: "key")
-                }
-                Button { web = .init(title: "Two-Factor Authentication", path: "mfa") } label: {
-                    Label("Authenticator & Passkeys", systemImage: "lock.shield")
+                if session.release != nil {
+                    NavigationLink("Change Password") { NativeAccountSecurityView() }
+                    NavigationLink("Authenticator & Device Sign-Ins") { ConnectionAccountView() }
+                } else {
+                    Button { web = .init(title: "Change Password", path: "change-password") } label: { Label("Change Password", systemImage: "key") }
+                    Button { web = .init(title: "Two-Factor Authentication", path: "mfa") } label: { Label("Authenticator & Passkeys", systemImage: "lock.shield") }
                 }
             }
             if session.isAdmin {

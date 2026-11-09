@@ -4,6 +4,41 @@ import WebKit
 
 final class LiveSessionTests: XCTestCase {
     @MainActor
+    func testReleaseScopedUploadPreflightAndFrameControl() async throws {
+        guard let address = ProcessInfo.processInfo.environment["FRAME_TEST_RELEASE_SERVER"] else { throw XCTSkip("Run with the disposable API v1 fixture.") }
+        let defaults = UserDefaults(suiteName: "release-integration-" + UUID().uuidString)!
+        let connection = ReleaseSession(defaults: defaults)
+        await connection.connect(mode: .selfHosted, address: address, allowLocalHTTP: true)
+        await connection.login(email: "native@example.test", password: "Native-test-password-28!")
+        let household = try XCTUnwrap(connection.identity?.households.first, connection.error ?? "Native login failed")
+        await connection.loadResources(household)
+        let collection = try XCTUnwrap(connection.collections.first)
+        let selectedFrame = try XCTUnwrap(connection.frames.first)
+        connection.selectScope(household: household, collection: collection, frame: selectedFrame)
+        let frame = FrameSession()
+        await frame.adoptRelease(connection)
+        XCTAssertTrue(frame.authenticated)
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 160, height: 100))
+        let image = renderer.image { context in UIColor.blue.setFill(); context.fill(CGRect(x: 0, y: 0, width: 160, height: 100)) }
+        let file = try PhotoImport.file(XCTUnwrap(image.pngData()), name: "Release-Native-Test")
+        let check = try FrameJSON.decode(DuplicateCheck.self, from: await frame.upload(file, checkOnly: true))
+        XCTAssertTrue(check.results[file.name]?.lowResolution == true)
+        let uploaded = try FrameJSON.decode(UploadResult.self, from: await frame.upload(file, checkOnly: false))
+        let asset = try XCTUnwrap(uploaded.uploaded.first)
+        _ = try await frame.mutate("api/display/control", body: ["action": "pause"])
+        let paused = try await frame.get("api/display/state", as: DisplayState.self)
+        XCTAssertTrue(paused.paused)
+        _ = try await frame.mutate("api/display/control", body: ["action": "play"])
+        _ = try await frame.mutate("api/gallery/\(asset)", method: "DELETE")
+        connection.selectScope(household: household, collection: collection, frame: nil)
+        await frame.adoptRelease(connection)
+        XCTAssertFalse(frame.canControlFrame)
+        do { _ = try await frame.mutate("api/display/control", body: ["action": "pause"]); XCTFail("Control requires an explicitly selected frame") }
+        catch let failure as ReleaseHTTPFailure { XCTAssertEqual(failure.status, 409) }
+        await connection.signOut()
+    }
+
+    @MainActor
     func testNativeSessionCSRFUploadsAndMutations() async throws {
         guard let address = ProcessInfo.processInfo.environment["FRAME_TEST_SERVER"] else {
             throw XCTSkip("Run the OpenFotoFrameIntegration scheme with the isolated fixture server.")

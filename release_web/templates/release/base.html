@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer"><meta name="csrf-token" content="{{ csrf_token() }}">
+<title>OpenFotoFrame</title><link rel="stylesheet" href="{{ url_for('release_pages.static', filename='portal.css') }}">
+{% block head %}{% endblock %}</head><body><main>
+<header><a href="/workspace">OpenFotoFrame</a><span>{{ 'Hosted service' if deployment_mode == 'hosted' else 'Your own server' }}</span></header>
+<nav aria-label="Account navigation">{% if request.cookies.get('release_session') %}<a href="/account">Account</a> · <a href="/admin">Household access</a> · <a href="/backup">Collection backup</a>{% if deployment_mode == 'hosted' %} · <a href="/subscribe">Subscription</a>{% endif %}{% else %}<a href="/login">Sign in</a> · <a href="/register">Register</a> · <a href="/recover">Recover account</a>{% endif %}</nav>
+{% block content %}{% endblock %}
+</main></body></html>

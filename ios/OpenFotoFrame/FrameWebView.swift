@@ -18,6 +18,7 @@ struct FrameWebScreen: View {
     @State private var reloadID = UUID()
     @State private var loading = true
     @State private var pagePath = ""
+    @State private var initialRequest: URLRequest?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,10 +38,23 @@ struct FrameWebScreen: View {
                     if login { Button("Change Server") { Task { await session.signOut(forgetServer: true) } } }
                 }
             } else if let server = session.server {
-                FrameWebView(url: server.endpoint(destination.path), session: session,
-                             loading: $loading, failure: $failure, pagePath: $pagePath, login: login, focus: destination.focus)
-                    .id(reloadID)
+                if session.release == nil || initialRequest != nil {
+                    FrameWebView(url: server.endpoint(destination.path), session: session, initialRequest: initialRequest,
+                                 loading: $loading, failure: $failure, pagePath: $pagePath, login: login, focus: destination.focus)
+                        .id(reloadID)
+                }
             }
+        }
+        .task(id: reloadID) {
+            guard let release = session.release else { return }
+            initialRequest = nil
+            let context = release.scopeIdentity
+            do {
+                let request = try await release.bridgeRequest(path: destination.path)
+                guard !Task.isCancelled, release.scopeIdentity == context, session.release === release else { return }
+                initialRequest = request
+            } catch is CancellationError { }
+            catch { failure = error.localizedDescription; loading = false }
         }
         .navigationTitle(destination.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -60,6 +74,7 @@ struct FrameWebScreen: View {
 private struct FrameWebView: UIViewRepresentable {
     let url: URL
     let session: FrameSession
+    let initialRequest: URLRequest?
     @Binding var loading: Bool
     @Binding var failure: String?
     @Binding var pagePath: String
@@ -90,7 +105,7 @@ private struct FrameWebView: UIViewRepresentable {
         webView.uiDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
         webView.isInspectable = _isDebugAssertConfiguration()
-        webView.load(URLRequest(url: url))
+        webView.load(initialRequest ?? URLRequest(url: url))
         return webView
     }
     func updateUIView(_ uiView: WKWebView, context: Context) { context.coordinator.parent = self }
@@ -112,6 +127,9 @@ private struct FrameWebView: UIViewRepresentable {
             } else {
                 if action.navigationType == .linkActivated, ["https", "http"].contains(url.scheme) {
                     UIApplication.shared.open(url)
+                } else {
+                    parent.failure = "The advanced editor attempted to leave the selected server. Close it and reconnect."
+                    parent.loading = false
                 }
                 decisionHandler(.cancel)
             }
@@ -124,6 +142,10 @@ private struct FrameWebView: UIViewRepresentable {
             parent.loading = false
             guard let url = webView.url else { return }
             parent.pagePath = url.path
+            if parent.session.release != nil && url.path == "/api/v1/auth/web-bridge/redeem" {
+                webView.load(URLRequest(url: parent.url))
+                return
+            }
             if url.path == "/logout" || url.path == "/login" {
                 parent.session.authenticated = false
                 parent.session.gallery = nil

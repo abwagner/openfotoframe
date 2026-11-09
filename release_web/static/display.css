@@ -1,0 +1,1 @@
+#display-message{position:fixed;inset:40% 5% auto;color:#ddd;font:20px -apple-system,BlinkMacSystemFont,sans-serif;text-align:center;z-index:100}#display-message:empty{display:none}#current-slide{object-fit:contain;width:100vw;height:100vh}

@@ -1,0 +1,6 @@
+{% extends 'release/base.html' %}{% block content %}<h1>{{ frame.name }}</h1>
+<p>{{ 'Paused' if state.paused else 'Playing' }} · Slide {{ state.index + 1 }}</p>
+<p>Frame controls do not grant access to its photo collections.</p>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% for action,label in [('previous','Previous'),('next','Next'),('pause','Pause'),('play','Play')] %}<button name="action" value="{{ action }}">{{ label }}</button>{% endfor %}</form>
+<a href="/workspace">Choose another collection or frame</a>{% endblock %}

@@ -1,6 +1,63 @@
 import XCTest
 
 final class OpenFotoFrameUITests: XCTestCase {
+    func testHostingChoiceAndExplicitLocalHTTPConfirmation() {
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(app.buttons["chooseHostedService"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["chooseSelfHosted"].exists)
+        XCTAssertFalse(app.textFields["releaseServerAddress"].exists)
+        app.buttons["chooseSelfHosted"].tap()
+        let address = app.textFields["releaseServerAddress"]
+        XCTAssertTrue(address.waitForExistence(timeout: 5))
+        address.tap()
+        address.typeText("http://192.168.1.2")
+        app.buttons["Continue"].tap()
+        XCTAssertTrue(app.buttons["Continue with Local HTTP"].waitForExistence(timeout: 5))
+        // Confirmation has not been accepted, so no request is sent.
+        app.terminate()
+    }
+
+    func testReleaseNativeLoginAndScopedGallery() throws {
+        guard let server = ProcessInfo.processInfo.environment["FRAME_TEST_RELEASE_SERVER"] else { throw XCTSkip("Run with the isolated API v1 fixture on port 5081.") }
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(app.buttons["chooseSelfHosted"].waitForExistence(timeout: 10))
+        app.buttons["chooseSelfHosted"].tap()
+        let address = app.textFields["releaseServerAddress"]
+        address.tap(); address.typeText(server)
+        app.buttons["Continue"].tap()
+        if server.hasPrefix("http:") { app.buttons["Continue with Local HTTP"].tap() }
+        let email = app.textFields["releaseEmail"]
+        XCTAssertTrue(email.waitForExistence(timeout: 10))
+        email.tap(); email.typeText("native@example.test")
+        let password = app.secureTextFields["releasePassword"]
+        password.tap(); password.typeText("Native-test-password-28!")
+        app.buttons["Sign In"].tap()
+        let picker = app.buttons["releaseCollectionPicker"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 10))
+        picker.tap(); app.buttons["Fixture Photos"].tap()
+        app.buttons["releaseFramePicker"].tap(); app.buttons["Fixture Frame"].tap()
+        app.buttons["openScopedCollection"].tap()
+        XCTAssertTrue(app.navigationBars["Your Photos"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["1 photos"].exists)
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "galleryPhoto-")).firstMatch.tap()
+        app.swipeUp(); app.swipeUp()
+        app.buttons["Crop & Full Preview"].tap()
+        XCTAssertTrue(app.webViews.buttons["Crop"].waitForExistence(timeout: 15), app.debugDescription)
+        app.buttons["Done"].tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.tabBars.buttons["Settings"].tap()
+        XCTAssertTrue(app.buttons["Connection & Access"].exists)
+        app.buttons["Connection & Access"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["connectionAccount"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["connectionCollection"].exists)
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Native API v1 scoped connection"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     func testServerValidation() {
         let app = XCUIApplication()
         app.launchArguments = ["--manual-frame-connection"]

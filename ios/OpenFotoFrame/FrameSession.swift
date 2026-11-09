@@ -13,7 +13,27 @@ final class FrameSession: ObservableObject {
     @Published var gallery: Gallery?
     @Published var loading = false
     @Published private(set) var signingOut = false
-    let websiteData = WKWebsiteDataStore.default()
+    private(set) var websiteData = WKWebsiteDataStore.default()
+    private(set) weak var release: ReleaseSession?
+
+    func adoptRelease(_ connection: ReleaseSession) async {
+        generation = UUID()
+        release = connection
+        server = connection.server
+        redirects.server = server
+        websiteData = connection.websiteData
+        authenticated = false
+        isAdmin = connection.scope?.administrator == true
+        gallery = nil
+        await didAuthenticate()
+    }
+    var canUpload: Bool { release == nil || ["contributor", "editor", "admin", "owner"].contains(release?.scope?.collection.permission ?? "") }
+    var canManageCollection: Bool { release == nil || ["editor", "admin", "owner"].contains(release?.scope?.collection.permission ?? "") }
+    var canControlFrame: Bool { release == nil || ["controller", "admin", "owner"].contains(release?.scope?.frame?.permission ?? "") }
+    func canEdit(_ photo: FramePhoto) -> Bool {
+        if canManageCollection { return true }
+        return release?.scope?.collection.permission == "contributor" && (photo.uploadedBy == release?.identity?.user.id || photo.uploadedBy == release?.identity?.user.email)
+    }
     private var generation = UUID()
     private var session: URLSession
     private let redirects = SameOriginRedirects()
@@ -32,6 +52,8 @@ final class FrameSession: ObservableObject {
 
     func connect(_ address: String) throws {
         let value = try FrameServer(address)
+        generation = UUID()
+        release = nil
         server = value
         redirects.server = value
         UserDefaults.standard.set(value.url.absoluteString, forKey: "frameServer")
@@ -41,6 +63,16 @@ final class FrameSession: ObservableObject {
 
     func didAuthenticate(reportAuthenticationError: Bool = true) async {
         do {
+            if let release {
+                let requestGeneration = generation
+                let value: Gallery = try await release.json("api/gallery")
+                guard requestGeneration == generation else { throw CancellationError() }
+                gallery = value
+                isAdmin = release.scope?.administrator == true
+                authenticated = release.authenticated
+                error = nil
+                return
+            }
             // A server can authorize access directly (for example over Tailscale),
             // or through a web session. Use the same CSRF-protected API either way.
             let page = try await send("upload")
@@ -72,12 +104,15 @@ final class FrameSession: ObservableObject {
     }
 
     func get<T: Decodable>(_ path: String, as type: T.Type) async throws -> T {
-        try FrameJSON.decode(type, from: await send(path))
+        let requestGeneration = generation
+        let value = try FrameJSON.decode(type, from: await send(path))
+        guard generation == requestGeneration else { throw CancellationError() }
+        return value
     }
 
     @discardableResult
     func mutate(_ path: String, method: String = "POST", body: [String: Any] = [:]) async throws -> Data {
-        let csrf = try await csrfToken()
+        let csrf = release == nil ? try await csrfToken() : nil
         return try await send(path, method: method, body: JSONSerialization.data(withJSONObject: body),
                               contentType: "application/json", csrf: csrf)
     }
@@ -85,7 +120,7 @@ final class FrameSession: ObservableObject {
     func upload(_ file: UploadFile, checkOnly: Bool) async throws -> Data {
         // One file per request keeps below the server's 50 MB aggregate request cap.
         guard file.data.count < 49 * 1024 * 1024 else { throw FrameError.message("\(file.name) exceeds the 49 MB upload limit.") }
-        let token = try await csrfToken()
+        let token = release == nil ? try await csrfToken() : nil
         let boundary = "Frame-\(UUID().uuidString)"
         return try await send(checkOnly ? "api/check-duplicates" : "api/upload", method: "POST",
                               body: Multipart.encode([file], boundary: boundary),
@@ -117,6 +152,7 @@ final class FrameSession: ObservableObject {
 
     private func send(_ path: String, method: String = "GET", body: Data? = nil,
                       contentType: String? = nil, csrf: String? = nil) async throws -> Data {
+        if let release { return try await release.sendLegacy(path, method: method, body: body, contentType: contentType) }
         guard let server else { throw FrameError.message("Connect to your frame first.") }
         let requestGeneration = generation
         let url = server.endpoint(path)
@@ -179,7 +215,8 @@ final class FrameSession: ObservableObject {
         generation = UUID()
         authenticated = false
         gallery = nil
-        _ = try? await send("logout")
+        if let release { await release.signOut(); self.release = nil }
+        else { _ = try? await send("logout") }
         let records = await websiteData.dataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes())
         await websiteData.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), for: records)
         session.invalidateAndCancel()

@@ -64,7 +64,7 @@ struct GalleryView: View {
                                     Button("Edit Group in Web Editor") { web = .init(title: "Group Editor", path: "upload", focus: .group(id)) }
                                     Button("Ungroup Photos") {
                                         Task { await run { _ = try await session.mutate("api/groups/\(id)", method: "DELETE") } }
-                                    }
+                                    }.disabled(!session.canManageCollection)
                                 } label: { Image(systemName: "ellipsis.circle").padding(8) }
                             }.padding().background(.quaternary, in: RoundedRectangle(cornerRadius: 14))
                         }
@@ -78,12 +78,12 @@ struct GalleryView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Menu {
-                    NavigationLink("Reorder Slideshow") { ReorderView() }
+                    NavigationLink("Reorder Slideshow") { ReorderView() }.disabled(!session.canManageCollection)
                     Button("Open Full Gallery Editor") { web = .init(title: "Gallery Editor", path: "upload") }
                 } label: { Image(systemName: "ellipsis.circle") }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button(selecting ? "Done" : "Select") { selecting.toggle(); selected.removeAll() }
+                Button(selecting ? "Done" : "Select") { selecting.toggle(); selected.removeAll() }.disabled(!session.canManageCollection)
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -106,7 +106,7 @@ struct GalleryView: View {
                 }.padding().background(.regularMaterial)
             }
         }
-        .confirmationDialog("Permanently delete \(selected.count) photos?", isPresented: $deleting, titleVisibility: .visible) {
+        .confirmationDialog(session.release == nil ? "Permanently delete \(selected.count) photos?" : "Remove \(selected.count) photos from this collection?", isPresented: $deleting, titleVisibility: .visible) {
             Button("Delete Photos", role: .destructive) { bulk("delete") }
         }
         .sheet(item: $web, onDismiss: { Task { await session.refresh() } }) { destination in

@@ -1,0 +1,2 @@
+-r requirements-release.txt
+boto3==1.43.126

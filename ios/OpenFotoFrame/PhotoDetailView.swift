@@ -40,8 +40,8 @@ struct PhotoDetailView: View {
                 } else { ProgressView("Loading frame appearance…").frame(maxWidth: .infinity, minHeight: 180) }
             }
             Section("Photo") {
-                TextField("Title", text: $title).accessibilityIdentifier("photoTitle")
-                Toggle("Visible on frame", isOn: $enabled).accessibilityIdentifier("photoVisibility")
+                TextField("Title", text: $title).accessibilityIdentifier("photoTitle").disabled(!session.canEdit(photo))
+                Toggle("Visible on frame", isOn: $enabled).accessibilityIdentifier("photoVisibility").disabled(!session.canEdit(photo))
                 LabeledContent("Uploaded by", value: photo.uploadedBy ?? "Unknown")
                 if let date = photo.uploadedAt { LabeledContent("Uploaded", value: String(date.prefix(10))) }
                 if let width = photo.width, let height = photo.height { LabeledContent("Dimensions", value: "\(width) × \(height)") }
@@ -67,7 +67,7 @@ struct PhotoDetailView: View {
                 Toggle("Custom border width", isOn: $overrideBevel)
                 if overrideBevel { Stepper("Width: \(Int(bevel)) px", value: $bevel, in: 0...16) }
             } header: { Text("Display appearance") } footer: {
-                Text("The preview uses your frame’s defaults unless overridden here. Save to update the frame. Use the full editor for interactive cropping and matching group heights.")
+                Text(session.canEdit(photo) ? "The preview uses your frame’s defaults unless overridden here. Save to update the frame. Use the full editor for interactive cropping and matching group heights." : "You have view-only access to this photo. Appearance changes in this preview are not saved.")
                 if defaults?.fitMode == "cover" { Text("Fill Screen hides the mat. Choose Show Whole Photo in Mat & Slideshow to display it.") }
             }
             Section {
@@ -76,14 +76,14 @@ struct PhotoDetailView: View {
                 }
                 Text("The full editor opens this photo. Changes there save directly to the frame.").font(.footnote).foregroundStyle(.secondary)
             }
-            Section {
-                Button("Delete Photo", role: .destructive) { deleting = true }
+            if session.canEdit(photo) {
+                Section { Button("Delete Photo", role: .destructive) { deleting = true } }
             }
         }
         .navigationTitle(photo.displayName).navigationBarTitleDisplayMode(.inline)
-        .toolbar { Button("Save", action: save).disabled(saving) }
+        .toolbar { Button("Save", action: save).disabled(saving || !session.canEdit(photo)) }
         .disabled(saving)
-        .confirmationDialog("Permanently delete this photo?", isPresented: $deleting, titleVisibility: .visible) {
+        .confirmationDialog(session.release == nil ? "Permanently delete this photo?" : "Remove this photo from the collection?", isPresented: $deleting, titleVisibility: .visible) {
             Button("Delete Photo", role: .destructive) {
                 Task {
                     await session.perform {

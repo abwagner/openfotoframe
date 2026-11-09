@@ -1,0 +1,28 @@
+# Rehearsal template. Explicit env file/secrets and NEW volumes are required.
+# Does not replace or include the legacy production compose project.
+services:
+  frame:
+    build:
+      context: ../..
+      dockerfile: deploy/release/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8059:8000"
+    environment:
+      RELEASE_MODE: self_hosted
+      PUBLIC_ORIGIN: ${RELEASE_PUBLIC_ORIGIN:?Set the rehearsal origin}
+      SECRET_KEY: ${RELEASE_SECRET_KEY:?Set a private random session key}
+      MFA_ENCRYPTION_KEY: ${RELEASE_MFA_ENCRYPTION_KEY:?Set a private Fernet key}
+      BOOTSTRAP_SECRET: ${RELEASE_BOOTSTRAP_SECRET:?Set an operator bootstrap secret}
+      REGISTER_ENABLED: "false"
+    volumes:
+      - release-rehearsal-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=128m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+volumes:
+  release-rehearsal-data:

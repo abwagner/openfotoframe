@@ -1,0 +1,16 @@
+{% extends 'release/base.html' %}{% block head %}{% if passkey %}<script src="{{ url_for('release_pages.static', filename='passkey.js') }}" defer></script>{% endif %}{% endblock %}{% block content %}
+<h1>{{ 'Verify your identity' if stage == 'mfa' else 'Set your password' if stage == 'change_password' else 'Sign in' }}</h1>
+<p>Your account belongs to this server. Only collections and frames shared with you will be available.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+{% if stage == 'enroll_mfa' %}<p>This server requires multi-factor authentication before granting access.</p>
+{% if 'totp' in session.get('release_mfa_methods', ['totp']) %}{% if enrollment %}<p>Add this secret to your authenticator, then enter its current code. Keep it private.</p><pre>{{ enrollment.secret }}</pre>{% endif %}
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="enroll_start"><button>Set up an authenticator</button></form>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Authenticator code<input name="code" autocomplete="one-time-code" required></label><button>Verify authenticator</button></form>{% endif %}
+{% else %}
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% if stage == 'password' %}<label>Email or username<input name="email" autocomplete="username" required></label>{% endif %}
+{% if stage == 'mfa' %}<label>Authenticator or recovery code<input name="code" autocomplete="one-time-code" required></label>
+{% else %}<label>Password<input type="password" name="password" autocomplete="{{ 'new-password' if stage == 'change_password' else 'current-password' }}" required></label>{% endif %}
+<button>{{ 'Verify' if stage == 'mfa' else 'Set password' if stage == 'change_password' else 'Sign in' }}</button></form>{% endif %}
+{% if passkey %}<form method="post" id="passkey-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="{{ 'passkey_register' if stage == 'enroll_mfa' else 'passkey' }}"><input type="hidden" name="credential" id="passkey-credential"><button type="button" id="passkey-signin" data-enroll="{{ 'true' if stage == 'enroll_mfa' else 'false' }}">{{ 'Set up a passkey' if stage == 'enroll_mfa' else 'Use a passkey' }}</button><p role="alert" id="passkey-error"></p></form>{% endif %}
+{% endblock %}

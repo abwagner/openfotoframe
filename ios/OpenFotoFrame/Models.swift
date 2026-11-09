@@ -15,7 +15,11 @@ struct FrameServer: Equatable {
         guard scheme == "https" || Self.isLocal(host) else {
             throw FrameError.message("Use HTTPS for servers outside your local network.")
         }
-        self.url = url
+        var canonical = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        canonical.scheme = scheme
+        canonical.host = host.lowercased()
+        if (scheme == "https" && canonical.port == 443) || (scheme == "http" && canonical.port == 80) { canonical.port = nil }
+        self.url = canonical.url!
     }
 
     static func isLocal(_ host: String) -> Bool {
@@ -32,9 +36,10 @@ struct FrameServer: Equatable {
     }
 
     func contains(_ other: URL) -> Bool {
+        other.user == nil && other.password == nil &&
         other.scheme?.lowercased() == url.scheme?.lowercased() &&
         other.host?.lowercased() == url.host?.lowercased() &&
-        (other.port ?? (other.scheme == "https" ? 443 : 80)) == (url.port ?? (url.scheme == "https" ? 443 : 80))
+        (other.port ?? (other.scheme?.lowercased() == "https" ? 443 : 80)) == (url.port ?? (url.scheme?.lowercased() == "https" ? 443 : 80))
     }
 
     func endpoint(_ path: String) -> URL { url.appendingPathComponent(path) }
@@ -66,6 +71,29 @@ struct FramePhoto: Decodable, Identifiable, Hashable {
     let bevelWidth: Double?
     let borderEffect: String?
     let crop: FrameCrop?
+    private enum CodingKeys: String, CodingKey {
+        case filename, size, enabled, title, uploadedAt, uploadedBy, width, height, scale, matColor, matFinish, bevelWidth, borderEffect, crop
+    }
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        filename = try values.decode(String.self, forKey: .filename)
+        size = try values.decode(Int.self, forKey: .size)
+        enabled = try values.decode(Bool.self, forKey: .enabled)
+        title = try values.decodeIfPresent(String.self, forKey: .title)
+        if let text = try? values.decode(String.self, forKey: .uploadedAt) { uploadedAt = text }
+        else if let timestamp = try? values.decode(Double.self, forKey: .uploadedAt), timestamp.isFinite {
+            uploadedAt = Date(timeIntervalSince1970: timestamp).ISO8601Format()
+        } else { uploadedAt = nil }
+        uploadedBy = try values.decodeIfPresent(String.self, forKey: .uploadedBy)
+        width = try values.decodeIfPresent(Int.self, forKey: .width)
+        height = try values.decodeIfPresent(Int.self, forKey: .height)
+        scale = try values.decodeIfPresent(Double.self, forKey: .scale)
+        matColor = try values.decodeIfPresent(String.self, forKey: .matColor)
+        matFinish = try values.decodeIfPresent(String.self, forKey: .matFinish)
+        bevelWidth = try values.decodeIfPresent(Double.self, forKey: .bevelWidth)
+        borderEffect = try values.decodeIfPresent(String.self, forKey: .borderEffect)
+        crop = try values.decodeIfPresent(FrameCrop.self, forKey: .crop)
+    }
     var displayName: String {
         if let title, !title.isEmpty { return title }
         return filename.replacingOccurrences(of: "^[a-f0-9]{8}_", with: "", options: .regularExpression)

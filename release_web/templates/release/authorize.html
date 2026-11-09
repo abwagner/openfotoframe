@@ -1,0 +1,4 @@
+{% extends 'release/base.html' %}{% block content %}<h1>Approve app sign-in</h1>
+<p>The device {{ details.device_name }} is requesting sign-in to this server. Continue only if you started this request in OpenFotoFrame.</p>
+{% if signed_in %}<p>You are signing in as {{ identity.user.email }}. This grants your existing access; it does not change your collection or frame permissions.</p><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button>Approve this device</button></form>
+{% else %}<a class="button" href="/login">Sign in before approving</a>{% endif %}<a href="/workspace">Cancel</a>{% endblock %}

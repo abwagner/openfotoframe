@@ -1,0 +1,4 @@
+{% extends 'release/base.html' %}{% block content %}<h1>Review your invitation</h1>
+<p>This invitation applies only to this server and the resources shown below.</p><pre>{{ preview | tojson(indent=2) }}</pre>
+{% if signed_in %}<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="confirm" value="yes"><button>Accept invitation</button></form>
+{% else %}<p>Sign in to accept. Opening this page does not consume your invitation.</p><a class="button" href="/login">Sign in</a>{% endif %}{% endblock %}

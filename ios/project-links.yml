@@ -1,0 +1,14 @@
+# Generate only after selecting the project-controlled HTTPS invitation domain.
+# FRAME_INVITE_DOMAIN=invite.example.com FRAME_HOSTED_SERVER_URL=https://cloud.example.com xcodegen --spec project-links.yml
+include: [project.yml]
+targets:
+  OpenFotoFrame:
+    settings:
+      base:
+        FRAME_INVITE_URL: https://${FRAME_INVITE_DOMAIN}
+        FRAME_HOSTED_SERVER_URL: ${FRAME_HOSTED_SERVER_URL}
+    entitlements:
+      path: OpenFotoFrame/Links.entitlements
+      properties:
+        com.apple.developer.associated-domains:
+          - applinks:${FRAME_INVITE_DOMAIN}

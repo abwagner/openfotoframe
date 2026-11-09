@@ -492,7 +492,7 @@
                         <div class="card-filename" title="${escAttr(img.filename)}">${cleanFilename(escAttr(img.filename))}</div>
                         <div class="card-meta">
                             <span>${formatSize(img.size)}</span>
-                            <span>${img.uploaded_by || 'Unknown'}</span>
+                            <span>${escAttr(img.uploaded_by || 'Unknown')}</span>
                         </div>
                         <div class="card-actions">
                             <button class="btn ${img.enabled ? 'btn-warning' : 'btn-success'}"
@@ -636,7 +636,7 @@
             const effectLabel = (currentBorderEffect || borderEffectSelect.value) === 'shadow' ? 'Shadow' : 'Bevel';
 
             const currentMatColor = img.mat_color || matColorInput.value;
-            const profileOptions = displayProfiles.filter(d => d.active).map(d => `<option value="${d.id}" ${d.id === activeDisplayId ? "selected" : ""}>${d.name} (${d.width}×${d.height})</option>`).join("");
+            const profileOptions = displayProfiles.filter(d => d.active).map(d => `<option value="${escAttr(d.id)}" ${d.id === activeDisplayId ? "selected" : ""}>${escAttr(d.name)} (${escAttr(d.width)}×${escAttr(d.height)})</option>`).join("");
 
             previewControlsBody.innerHTML = `
                 <div class="group-edit-item" style="flex-wrap:wrap;gap:8px;"><label>Display</label><select style="flex:1" data-onchange="selectEditorDisplay(this.value, '${escAttr(filename)}')">${profileOptions}</select><button class="btn btn-edit" data-onclick="rotateForDisplay('${escAttr(filename)}', -90)">↺</button><button class="btn btn-edit" data-onclick="rotateForDisplay('${escAttr(filename)}', 90)">↻</button></div>
@@ -1898,7 +1898,7 @@
             if (!activeDisplayId) return;
             const img = images.find(i => i.filename === filename);
             if (img) { img.display_overrides ||= {}; img.display_overrides[activeDisplayId] = { ...(img.display_overrides[activeDisplayId] || {}), ...updates }; }
-            const response = await fetch(`/api/gallery//displays/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
+            const response = await fetch(`/api/gallery/${encodeURIComponent(filename)}/displays/${encodeURIComponent(activeDisplayId)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
             if (!response.ok) throw new Error("Could not save display override");
             renderSinglePreviewImage(filename);
         }
@@ -2078,7 +2078,11 @@
             try {
                 const resp = await fetch('/api/tv-schedules');
                 const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error?.message || 'Cannot load TV schedules.');
                 tvSchedules = data.schedules || [];
+                if (data.execution_enabled === false) {
+                    document.getElementById('cec-unavailable-msg').textContent = 'Automatic TV power is not configured for this server. Your existing TV automation must remain active.';
+                }
                 const cecAvailable = data.cec_available;
 
                 document.getElementById('cec-unavailable-msg').style.display =
@@ -2161,11 +2165,12 @@
 
         async function saveTvSchedules() {
             try {
-                await fetch('/api/tv-schedules', {
+                const response = await fetch('/api/tv-schedules', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ schedules: tvSchedules })
                 });
+                if (!response.ok) throw new Error('Schedule changes were not saved.');
             } catch (err) {
                 showStatus('Failed to save TV schedules', 'error');
             }
@@ -2199,6 +2204,10 @@
                 const info = await resp.json();
                 const el = document.getElementById('network-info-content');
                 if (!el) return;
+                if (info.server_url) {
+                    el.textContent = 'Server: ' + info.server_url;
+                    return;
+                }
                 let html = '';
                 if (info.local_ip) {
                     html += `<div style="margin-bottom: 6px;"><strong>Local IP:</strong> ${info.local_ip}</div>`;

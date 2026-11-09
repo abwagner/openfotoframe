@@ -1,0 +1,10 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0">
+<meta name="csrf-token" content="{{ frame_csrf }}"><meta name="referrer" content="no-referrer"><title>OpenFotoFrame Display</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/display.css') }}"><link rel="stylesheet" href="{{ url_for('release_pages.static', filename='display.css') }}">
+<script src="{{ url_for('static', filename='js/display-fullscreen.js') }}" defer></script>
+<script src="{{ url_for('release_pages.static', filename='display.js') }}" type="module"></script></head>
+<body data-physical="{{ 'true' if physical else 'false' }}" data-frame-id="{{ frame.frame_id }}">
+<div class="frame-container"><div class="image-wrapper"><img id="current-slide" class="snapshot-img active" alt="Photo slideshow"></div></div>
+<div id="art-surface" hidden></div><p id="display-message" role="status">Loading your frame…</p>
+<div class="controls"><button class="control-btn" id="previous-btn">← Prev</button><button class="control-btn" id="pause-btn">⏸ Pause</button><button class="control-btn" id="next-btn">Next →</button><button class="control-btn" id="fullscreen-btn">⛶ Full</button><button class="control-btn fullscreen-exit" id="exit-fullscreen-btn" hidden>⛶ Exit Full</button></div>
+</body></html>

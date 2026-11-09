@@ -11,6 +11,10 @@ struct DisplayView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 28) {
+                if session.release != nil && session.release?.scope?.frame == nil {
+                    ContentUnavailableView("Choose a Frame", systemImage: "tv", description: Text("Select the frame you want to control in Connection & Access."))
+                    NavigationLink("Connection & Access") { ConnectionAccountView() }
+                } else {
                 ZStack {
                     RoundedRectangle(cornerRadius: 24).fill(.teal.gradient)
                     VStack(spacing: 16) {
@@ -25,7 +29,7 @@ struct DisplayView: View {
                     control("Previous", symbol: "backward.end.fill", action: "prev")
                     control(state?.paused == true ? "Play" : "Pause", symbol: state?.paused == true ? "play.fill" : "pause.fill", action: state?.paused == true ? "play" : "pause")
                     control("Next", symbol: "forward.end.fill", action: "next")
-                }.disabled(busy || connectionIssue != nil || (state?.total ?? 0) == 0)
+                }.disabled(busy || !session.canControlFrame || connectionIssue != nil || (state?.total ?? 0) == 0)
                 if let connectionIssue {
                     VStack(spacing: 8) {
                         Label("Connection interrupted", systemImage: "wifi.exclamationmark").font(.headline)
@@ -44,12 +48,13 @@ struct DisplayView: View {
                 Text("The live display uses the same rendering as your TV, including crops, groups, mat textures, and transitions.")
                     .font(.footnote).foregroundStyle(.secondary)
                 Button("Open Full Frame Controls") { web = .init(title: "Frame Controls", path: "upload") }
+                }
             }.padding(24).frame(maxWidth: 680).frame(maxWidth: .infinity)
         }
         .navigationTitle("Your Frame")
         .refreshable { await refresh() }
         .task(id: scenePhase) {
-            guard scenePhase == .active else { return }
+            guard scenePhase == .active, session.release == nil || session.release?.scope?.frame != nil else { return }
             await refresh()
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(5)) } catch { break }

@@ -1,0 +1,4 @@
+-r requirements-release.txt
+stripe==16.1.0
+# 3.1.2 includes Apple's OCSP freshness validation fix.
+app-store-server-library==3.1.2

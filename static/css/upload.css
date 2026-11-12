@@ -737,6 +737,9 @@
         }
 
         .display-slide-thumb img { object-fit: contain; }
+        .display-slide-card { padding: 0; width: 100%; border: 0; cursor: pointer; appearance: none; }
+        .display-slide-card .display-slide-thumb { display: block; }
+        .display-slide-card:focus-visible { outline: 3px solid #69c9df; outline-offset: 3px; }
         #gallery-presentation-note { color: var(--text-secondary, #777); padding: 0 4px; }
 
         .status-badge {

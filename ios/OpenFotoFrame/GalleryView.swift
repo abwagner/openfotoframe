@@ -15,6 +15,7 @@ struct GalleryView: View {
     @State private var displayRequest = UUID()
     @State private var displayProfiles: [GalleryDisplayProfile] = []
     @State private var selectedDisplayId = ""
+    @State private var selectedSlide: GallerySlide?
 
     private var displayedSlides: [GallerySlide] {
         (displayed?.slides ?? []).filter { slide in
@@ -54,8 +55,6 @@ struct GalleryView: View {
                     if let displayed {
                         Text("\(displayed.slides.count) slides · \(displayed.profile.name)")
                             .font(.subheadline).foregroundStyle(.secondary)
-                        Text("Includes automatic pairs, crops, and mats. Switch to originals to manage individual photos.")
-                            .font(.caption).foregroundStyle(.secondary)
                     }
                     if let displayError {
                         Text(displayError).font(.subheadline).foregroundStyle(.secondary)
@@ -68,25 +67,15 @@ struct GalleryView: View {
                     } else {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
                             ForEach(displayedSlides) { slide in
-                                VStack(alignment: .leading, spacing: 8) {
+                                Button { selectedSlide = slide } label: {
                                     if let path = slide.localThumbnailPath {
                                         ServerImage(path: path, fit: .fit)
                                             .aspectRatio(displayed?.profile.aspectRatio ?? (16.0 / 9.0), contentMode: .fit)
                                             .background(.quaternary).clipShape(RoundedRectangle(cornerRadius: 12))
                                     }
-                                    Text(slide.label).font(.subheadline.bold())
-                                    ForEach(slide.filenames, id: \.self) { name in
-                                        if let photo = session.gallery?.images.first(where: { $0.filename == name }) {
-                                            NavigationLink { PhotoDetailView(photo: photo) } label: {
-                                                Text(photo.displayName).font(.caption).lineLimit(1)
-                                            }
-                                        }
-                                    }
-                                    if let id = slide.groupId {
-                                        Button("Edit Group") { web = .init(title: "Group Editor", path: "upload", focus: .group(id)) }
-                                            .font(.caption)
-                                    }
-                                }.accessibilityIdentifier("gallerySlide-\(slide.id)")
+                                }.buttonStyle(.plain)
+                                    .accessibilityLabel("Preview \(slide.label.lowercased())")
+                                    .accessibilityIdentifier("gallerySlide-\(slide.id)")
                             }
                         }
                     }
@@ -182,6 +171,11 @@ struct GalleryView: View {
         .sheet(item: $web, onDismiss: { Task { await session.refresh() } }) { destination in
             NavigationStack { FrameWebScreen(destination: destination) }
         }
+        .sheet(item: $selectedSlide) { slide in
+            NavigationStack {
+                GallerySlidePreview(slide: slide, aspectRatio: displayed?.profile.aspectRatio ?? (16.0 / 9.0))
+            }
+        }
         .task { await session.refresh() }
         .onReceive(session.$gallery) { gallery in
             displayed = nil
@@ -247,6 +241,44 @@ struct GalleryView: View {
             try await action()
             selected.removeAll()
             await session.refresh()
+        }
+    }
+}
+
+private struct GallerySlidePreview: View {
+    @EnvironmentObject private var session: FrameSession
+    @Environment(\.dismiss) private var dismiss
+    let slide: GallerySlide
+    let aspectRatio: CGFloat
+    @State private var web: WebDestination?
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                if let path = slide.localThumbnailPath {
+                    ServerImage(path: path, fit: .fit)
+                        .aspectRatio(aspectRatio, contentMode: .fit)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                if let id = slide.groupId {
+                    Button("Edit Group") { web = .init(title: "Group Editor", path: "upload", focus: .group(id)) }
+                        .buttonStyle(.borderedProminent)
+                }
+                ForEach(slide.filenames, id: \.self) { name in
+                    if let photo = session.gallery?.images.first(where: { $0.filename == name }) {
+                        NavigationLink { PhotoDetailView(photo: photo) } label: {
+                            Label("Edit \(photo.displayName)", systemImage: "slider.horizontal.3")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }.buttonStyle(.bordered)
+                    }
+                }
+            }.padding()
+        }
+        .navigationTitle(slide.label)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        .sheet(item: $web, onDismiss: { Task { await session.refresh() } }) { destination in
+            NavigationStack { FrameWebScreen(destination: destination) }
         }
     }
 }

@@ -474,17 +474,28 @@
                 return;
             }
             const slides = displayedSlides || [];
-            note.textContent = `${slides.length} displayed slides · ${displayedProfile?.name || 'Frame'} · Includes automatic pairs, crops, and mats. Use originals to manage individual photos.`;
+            note.textContent = `${slides.length} displayed slides · ${displayedProfile?.name || 'Frame'}`;
             galleryGrid.style.display = 'grid';
             emptyState.style.display = 'none';
-            galleryGrid.innerHTML = slides.map(slide => {
+            galleryGrid.innerHTML = slides.map((slide, index) => {
                 const label = slide.automatic ? 'Automatic pair' : slide.group_id ? 'Photo group' : 'Photo';
-                const edit = slide.group_id
-                    ? `<button class="btn btn-edit" data-onclick="openGroupPreview('${escAttr(slide.group_id)}')">Edit group</button>`
-                    : slide.filenames.map((name, index) => `<button class="btn btn-edit" data-onclick="openPreview('${escAttr(name)}')">Edit${slide.filenames.length > 1 ? ' photo ' + (index + 1) : ' photo'}</button>`).join('');
-                const names = slide.filenames.map(name => escAttr(images.find(image => image.filename === name)?.title || cleanFilename(name)));
-                return `<div class="image-card"><div class="card-thumb display-slide-thumb" style="aspect-ratio:${Number(displayedProfile?.width) || 16}/${Number(displayedProfile?.height) || 9}"><img src="${escAttr(slide.thumbnail_path)}" alt="${escAttr(label)}" loading="lazy"></div><div class="card-info"><div class="card-filename">${escAttr(label)}</div><div class="card-meta">${names.join(' · ')}</div><div class="card-actions">${edit}</div></div></div>`;
+                return `<button type="button" class="image-card display-slide-card" aria-label="Preview ${escAttr(label.toLowerCase())}" data-onclick="openSlidePreview(${index})"><span class="card-thumb display-slide-thumb" style="aspect-ratio:${Number(displayedProfile?.width) || 16}/${Number(displayedProfile?.height) || 9}"><img src="${escAttr(slide.thumbnail_path)}" alt="" loading="lazy"></span></button>`;
             }).join('');
+        }
+
+        function openSlidePreview(index) {
+            const slide = displayedSlides?.[index];
+            if (!slide) return;
+            previewFilename = null;
+            previewGroupId = null;
+            previewSection.classList.add('active', 'has-controls');
+            previewControls.classList.add('active');
+            document.querySelector('.preview-controls-actions').style.display = 'none';
+            previewControlsTitle.textContent = slide.automatic ? 'Automatic pair' : slide.group_id ? 'Photo group' : 'Photo';
+            matPreview.style.aspectRatio = `${Number(displayedProfile?.width) || 16} / ${Number(displayedProfile?.height) || 9}`;
+            previewContent.innerHTML = `<img src="${escAttr(slide.thumbnail_path)}" alt="Slide preview" style="width:100%;height:100%;object-fit:contain;display:block;">`;
+            const groupEdit = slide.group_id ? `<button class="btn btn-edit" data-onclick="openGroupPreview('${escAttr(slide.group_id)}')">Edit group</button>` : '';
+            previewControlsBody.innerHTML = groupEdit + slide.filenames.map((name, position) => `<button class="btn btn-edit" data-onclick="openPreview('${escAttr(name)}')">Edit${slide.filenames.length > 1 ? ' photo ' + (position + 1) : ' photo'}</button>`).join('');
         }
 
         function renderGallery() {

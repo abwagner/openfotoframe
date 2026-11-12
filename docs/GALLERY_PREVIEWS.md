@@ -8,6 +8,11 @@ Automatic pairs offer individual photo editors and are never persisted or treate
 as editable saved groups. Pair membership can change with the display's daily
 shuffle. Hidden photos are absent from the displayed-slide view.
 
+The default gallery remains a grid of rectangular thumbnails matching the display
+aspect ratio. Captions and edit buttons are omitted from the grid. Clicking or
+tapping a thumbnail opens a slide preview, where the user can edit the saved group
+or an individual photo. An automatic pair offers an editor for each member photo.
+
 `GET /api/gallery/display-slides` returns the current display profile and slide
 membership. An optional profile ID path segment selects a specific display.
 `GET /api/gallery/display-thumbnails/<display_id>/<slide_id>` returns a JPEG with

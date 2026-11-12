@@ -43,6 +43,9 @@ final class OpenFotoFrameUITests: XCTestCase {
         app.buttons["openScopedCollection"].tap()
         XCTAssertTrue(app.navigationBars["Your Photos"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["1 photos"].exists)
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "gallerySlide-")).firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+        capture("Displayed slide gallery", app: app)
+        app.segmentedControls.buttons["Original photos"].tap()
         app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "galleryPhoto-")).firstMatch.tap()
         app.swipeUp(); app.swipeUp()
         app.buttons["Crop & Full Preview"].tap()
@@ -115,6 +118,7 @@ final class OpenFotoFrameUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Your Photos"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts["2 photos"].exists)
         capture("Native gallery", app: app)
+        app.segmentedControls.buttons["Original photos"].tap()
         let firstPhoto = app.buttons["galleryPhoto-abcdef00_Landscape.jpg"]
         XCTAssertTrue(firstPhoto.waitForExistence(timeout: 10))
         firstPhoto.tap()

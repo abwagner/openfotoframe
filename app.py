@@ -23,7 +23,7 @@ from urllib.parse import urlparse, urlencode
 from datetime import datetime
 from pathlib import Path
 from functools import wraps
-from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, url_for, session, has_request_context
+from flask import Flask, render_template, request, jsonify, send_from_directory, send_file, redirect, url_for, session, has_request_context
 
 import bcrypt
 from flask_wtf.csrf import CSRFProtect
@@ -2516,6 +2516,60 @@ def api_get_gallery():
     images = get_uploaded_images()
     gallery = load_gallery()
     return jsonify({'images': images, 'groups': gallery.get('groups', {})})
+
+
+def _gallery_display_slides(display_id=None):
+    slides, _, settings = _build_slides()
+    profile = get_display_profile(settings, display_id)
+    if display_id and profile['id'] != display_id:
+        return None, None
+    return slides, profile
+
+
+@app.get('/api/gallery/display-slides')
+@app.get('/api/gallery/display-slides/<display_id>')
+@api_login_required
+def api_gallery_display_slides(display_id=None):
+    """Presentation inventory; automatic pairs remain synthetic, never saved groups."""
+    slides, profile = _gallery_display_slides(display_id)
+    if profile is None:
+        return jsonify({'error': 'Display not found'}), 404
+    items = []
+    for slide in slides:
+        names = [image['filename'] for image in slide['images']]
+        key = slide.get('group_id') or names[0]
+        automatic = key.startswith('__pair_')
+        items.append({'id': key, 'filenames': names,
+                      'group_id': None if automatic else slide.get('group_id'),
+                      'automatic': automatic,
+                      'thumbnail_path': url_for('api_gallery_display_thumbnail',
+                                                display_id=profile['id'], slide_id=key)})
+    response = jsonify(slides=items, profile=profile)
+    response.headers['Cache-Control'] = 'no-store, private'
+    return response
+
+
+@app.get('/api/gallery/display-thumbnails/<display_id>/<slide_id>')
+@api_login_required
+def api_gallery_display_thumbnail(display_id, slide_id):
+    slides, profile = _gallery_display_slides(display_id)
+    slide = next((s for s in slides or []
+                  if (s.get('group_id') or s['images'][0]['filename']) == slide_id), None)
+    if profile is None or slide is None:
+        return jsonify({'error': 'Slide not found'}), 404
+    snapshot = _profile_snapshot_url(slide, profile)
+    if not snapshot:
+        return jsonify({'error': 'Preview unavailable'}), 404
+    path = SNAPSHOT_FOLDER / Path(urlparse(snapshot).path).name
+    with Image.open(path) as source:
+        image = source.convert('RGB')
+        image.thumbnail((400, 400), Image.Resampling.LANCZOS)
+        output = io.BytesIO()
+        image.save(output, format='JPEG', quality=85)
+    output.seek(0)
+    response = send_file(output, mimetype='image/jpeg')
+    response.headers['Cache-Control'] = 'no-store, private'
+    return response
 
 
 @app.route('/api/gallery/<filename>', methods=['PATCH'])

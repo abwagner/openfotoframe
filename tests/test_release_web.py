@@ -52,6 +52,7 @@ def test_gallery_roundtrip_reuses_transaction_and_scoped_media(web):
     photo = response.json["images"][0]
     assert photo["filename"] == aid and isinstance(photo["uploaded_at"], str)
     assert photo["width"] > 0 and photo["size"] > 0
+    assert photo["title"] == "Landscape.jpg"
     assert client.get("/thumbnails/" + aid, headers=headers).status_code == 200
     assert (
         client.patch(
@@ -66,6 +67,33 @@ def test_gallery_roundtrip_reuses_transaction_and_scoped_media(web):
         == "Family"
     )
     assert client.get("/static/js/upload.js").status_code == 200
+
+
+def test_display_gallery_is_collection_scoped_and_checks_each_thumbnail(web):
+    from PIL import Image
+    app, owner, hid, cid, fid, headers = web
+    client = app.test_client()
+    aid = upload(app, headers)
+    other = collection(app, owner, hid, "Private")
+    foreign = upload(app, headers | {"X-OpenFotoFrame-Collection": other}, "Private.jpg")
+    assigned = client.patch(f"/api/v1/households/{hid}/frames/{fid}", headers=auth(owner),
+                            json={"collection_ids": [cid, other]})
+    assert assigned.status_code == 200
+    result = client.get('/api/gallery/display-slides', headers=headers)
+    assert result.status_code == 200, result.json
+    slide, = result.json['slides']
+    assert slide['filenames'] == [aid] and foreign not in str(result.json)
+    thumb = client.get(slide['thumbnail_path'], headers=headers)
+    assert thumb.status_code == 200, thumb.get_data(as_text=True) if thumb.is_json else ''
+    assert thumb.cache_control.no_store and thumb.cache_control.private
+    with Image.open(io.BytesIO(thumb.data)) as image:
+        assert max(image.size) <= 400
+    assert client.get(slide['thumbnail_path'], headers=headers | {'X-OpenFotoFrame-Collection': other}).status_code == 404
+    assert client.get(slide['thumbnail_path'], headers={k:v for k,v in headers.items() if k != 'Authorization'}).status_code == 401
+    member = user(app)
+    assert accept(app, member, invite(app, owner, hid, frames=[{'id': fid, 'role': 'controller'}])).status_code == 200
+    assert client.get('/api/gallery/display-slides', headers=headers | auth(member)).status_code == 404
+    assert client.get(slide['thumbnail_path'], headers=headers | auth(member)).status_code == 404
 
 
 def test_compatibility_never_trusts_loopback_proxy_headers_or_foreign_scope(web):

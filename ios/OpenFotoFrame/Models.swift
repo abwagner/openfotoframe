@@ -117,6 +117,39 @@ struct Gallery: Decodable {
     let groups: [String: FrameGroup]
 }
 
+struct DisplayGallery: Decodable {
+    let slides: [GallerySlide]
+    let profile: GalleryDisplayProfile
+}
+
+struct GalleryDisplayProfile: Decodable {
+    let id: String
+    let name: String
+    let width: Int
+    let height: Int
+    var aspectRatio: CGFloat { CGFloat(max(1, width)) / CGFloat(max(1, height)) }
+}
+
+struct GalleryDisplayProfiles: Decodable {
+    let displays: [GalleryDisplayProfile]
+}
+
+struct GallerySlide: Decodable, Identifiable {
+    let id: String
+    let filenames: [String]
+    let groupId: String?
+    let automatic: Bool
+    let thumbnailPath: String
+    var label: String { automatic ? "Automatic pair" : (groupId == nil ? "Photo" : "Photo group") }
+    var localThumbnailPath: String? {
+        guard thumbnailPath.hasPrefix("/api/gallery/display-thumbnails/"),
+              !thumbnailPath.contains("?"), !thumbnailPath.contains("#"),
+              !thumbnailPath.contains("%"),
+              !thumbnailPath.split(separator: "/").contains("..") else { return nil }
+        return String(thumbnailPath.dropFirst())
+    }
+}
+
 struct DisplayState: Decodable {
     let index: Int
     let paused: Bool

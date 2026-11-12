@@ -9,6 +9,21 @@ struct GalleryView: View {
     @State private var deleting = false
     @State private var busy = false
     @State private var web: WebDestination?
+    @State private var showDisplayed = true
+    @State private var displayed: DisplayGallery?
+    @State private var displayError: String?
+    @State private var displayRequest = UUID()
+    @State private var displayProfiles: [GalleryDisplayProfile] = []
+    @State private var selectedDisplayId = ""
+
+    private var displayedSlides: [GallerySlide] {
+        (displayed?.slides ?? []).filter { slide in
+            query.isEmpty || slide.filenames.contains { name in
+                (session.gallery?.images.first { $0.filename == name }?.displayName ?? name)
+                    .localizedCaseInsensitiveContains(query)
+            }
+        }
+    }
 
     private var photos: [FramePhoto] {
         (session.gallery?.images ?? []).filter {
@@ -26,6 +41,56 @@ struct GalleryView: View {
                     Spacer()
                     Text("\(all.filter(\.enabled).count) on display")
                 }.font(.subheadline).foregroundStyle(.secondary)
+                Picker("Gallery source", selection: $showDisplayed) {
+                    Text("Displayed slides").tag(true)
+                    Text("Original photos").tag(false)
+                }.pickerStyle(.segmented).disabled(selecting)
+                if showDisplayed {
+                    if session.release == nil && displayProfiles.count > 1 {
+                        Picker("Preview display", selection: $selectedDisplayId) {
+                            ForEach(displayProfiles, id: \.id) { profile in Text(profile.name).tag(profile.id) }
+                        }
+                    }
+                    if let displayed {
+                        Text("\(displayed.slides.count) slides · \(displayed.profile.name)")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                        Text("Includes automatic pairs, crops, and mats. Switch to originals to manage individual photos.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let displayError {
+                        Text(displayError).font(.subheadline).foregroundStyle(.secondary)
+                        Button("Reload Display Previews") { Task { await loadDisplaySlides() } }
+                    } else if displayed == nil {
+                        ProgressView("Loading display previews…").frame(maxWidth: .infinity).padding(40)
+                    } else if displayedSlides.isEmpty {
+                        ContentUnavailableView("No displayed slides", systemImage: "photo.on.rectangle.angled",
+                                               description: Text("Check the selected frame, photo visibility, or search."))
+                    } else {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
+                            ForEach(displayedSlides) { slide in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    if let path = slide.localThumbnailPath {
+                                        ServerImage(path: path, fit: .fit)
+                                            .aspectRatio(displayed?.profile.aspectRatio ?? (16.0 / 9.0), contentMode: .fit)
+                                            .background(.quaternary).clipShape(RoundedRectangle(cornerRadius: 12))
+                                    }
+                                    Text(slide.label).font(.subheadline.bold())
+                                    ForEach(slide.filenames, id: \.self) { name in
+                                        if let photo = session.gallery?.images.first(where: { $0.filename == name }) {
+                                            NavigationLink { PhotoDetailView(photo: photo) } label: {
+                                                Text(photo.displayName).font(.caption).lineLimit(1)
+                                            }
+                                        }
+                                    }
+                                    if let id = slide.groupId {
+                                        Button("Edit Group") { web = .init(title: "Group Editor", path: "upload", focus: .group(id)) }
+                                            .font(.caption)
+                                    }
+                                }.accessibilityIdentifier("gallerySlide-\(slide.id)")
+                            }
+                        }
+                    }
+                } else {
                 Picker("Visibility", selection: $filter) {
                     ForEach(["All", "Visible", "Hidden"], id: \.self) { Text($0) }
                 }.pickerStyle(.segmented)
@@ -70,6 +135,7 @@ struct GalleryView: View {
                         }
                     }
                 }
+                }
             }.padding()
         }
         .navigationTitle("Your Photos")
@@ -83,7 +149,11 @@ struct GalleryView: View {
                 } label: { Image(systemName: "ellipsis.circle") }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button(selecting ? "Done" : "Select") { selecting.toggle(); selected.removeAll() }.disabled(!session.canManageCollection)
+                Button(selecting ? "Done" : "Select") {
+                    selecting.toggle()
+                    if selecting { showDisplayed = false }
+                    selected.removeAll()
+                }.disabled(!session.canManageCollection)
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -113,6 +183,42 @@ struct GalleryView: View {
             NavigationStack { FrameWebScreen(destination: destination) }
         }
         .task { await session.refresh() }
+        .onReceive(session.$gallery) { gallery in
+            displayed = nil
+            displayRequest = UUID()
+            if gallery != nil { Task { await loadDisplaySlides() } }
+            else { displayProfiles = []; selectedDisplayId = "" }
+        }
+        .onChange(of: selectedDisplayId) { _, value in
+            if !value.isEmpty { Task { await loadDisplaySlides() } }
+        }
+    }
+
+    @MainActor
+    private func loadDisplaySlides() async {
+        let request = UUID()
+        displayRequest = request
+        displayError = nil
+        displayed = nil
+        do {
+            if session.release == nil {
+                let profiles = try await session.get("api/displays", as: GalleryDisplayProfiles.self)
+                guard displayRequest == request else { return }
+                displayProfiles = profiles.displays
+                if !selectedDisplayId.isEmpty && !profiles.displays.contains(where: { $0.id == selectedDisplayId }) {
+                    selectedDisplayId = ""
+                }
+            }
+            let suffix = session.release == nil && !selectedDisplayId.isEmpty ? "/\(selectedDisplayId)" : ""
+            let value = try await session.get("api/gallery/display-slides\(suffix)", as: DisplayGallery.self)
+            guard displayRequest == request else { return }
+            displayed = value
+            if session.release == nil { selectedDisplayId = value.profile.id }
+        } catch {
+            guard displayRequest == request else { return }
+            displayed = nil
+            displayError = "Display previews could not be loaded. You can still manage original photos. \(error.localizedDescription)"
+        }
     }
 
     private func card(_ photo: FramePhoto) -> some View {

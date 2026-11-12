@@ -7,6 +7,19 @@ import WebKit
 #endif
 
 final class FrameTests: XCTestCase {
+    func testDisplayedGalleryKeepsAutomaticPairsAndSafeThumbnailPaths() throws {
+        let data = Data(#"{"slides":[{"id":"pair_one","filenames":["a.jpg","b.jpg"],"automatic":true,"group_id":null,"thumbnail_path":"/api/gallery/display-thumbnails/default/pair_one"}],"profile":{"id":"default","name":"TV","width":1920,"height":1080}}"#.utf8)
+        let gallery = try FrameJSON.decode(DisplayGallery.self, from: data)
+        XCTAssertEqual(gallery.slides.count, 1)
+        XCTAssertEqual(gallery.slides[0].filenames, ["a.jpg", "b.jpg"])
+        XCTAssertEqual(gallery.slides[0].label, "Automatic pair")
+        XCTAssertEqual(gallery.slides[0].localThumbnailPath, "api/gallery/display-thumbnails/default/pair_one")
+        XCTAssertEqual(gallery.profile.aspectRatio, 16.0 / 9.0, accuracy: 0.001)
+        for path in ["https://foreign.test/image", "/api/gallery/display-thumbnails/../secret", "/api/gallery/display-thumbnails/%2e%2e/secret"] {
+            let slide = GallerySlide(id: "bad", filenames: [], groupId: nil, automatic: false, thumbnailPath: path)
+            XCTAssertNil(slide.localThumbnailPath)
+        }
+    }
     func testServerAddressesAndOriginBoundaries() throws {
         for address in ["https://frame.example.com", "http://192.168.1.20:5000", "http://frame.local", "http://100.64.12.1:5000", "http://localhost:5000"] {
             XCTAssertNoThrow(try FrameServer(address), address)

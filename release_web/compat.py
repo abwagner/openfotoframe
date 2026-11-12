@@ -159,7 +159,8 @@ def photo(record):
         uploaded_at=created,
         uploaded_by=meta.get("uploaded_by", record.get("uploaded_by", "")),
     )
-    meta.setdefault("title", record.get("filename", ""))
+    if not meta.get("title"):
+        meta["title"] = record.get("filename", "")
     meta.setdefault("enabled", True)
     return meta
 

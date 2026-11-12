@@ -8,7 +8,7 @@ import tempfile
 from flask import Blueprint, abort, jsonify, request, session, redirect, render_template
 from PIL import Image, ImageOps
 from render_display import render_single_slide, render_group_slide, parse_aspect_ratio
-from .compat import api, payload, scope, identifier, frame_path, DEFAULT_SETTINGS
+from .compat import api, payload, scope, identifier, frame_path, collection_path, records, DEFAULT_SETTINGS
 
 display_pages = Blueprint("release_display", __name__)
 
@@ -281,7 +281,59 @@ def frame_control():
     return api(frame_path("/control"), "POST", request.get_json() or {})
 
 
-def render(data, slide):
+def gallery_presentation(display_id=None):
+    """Render only the selected, authorized collection, even on multi-collection frames."""
+    cid = scope("collection")
+    assets = records(payload(api(collection_path("/assets"))), "assets")
+    groups = records(payload(api(collection_path("/groups"))), "groups")
+    config = payload(api(collection_path("/settings")))
+    fid = display_id or request.headers.get("X-OpenFotoFrame-Frame") or session.get("release_frame_id")
+    frame = {}
+    if fid and fid != "collection":
+        frame = payload(api(f"/api/v1/households/{scope('household')}/frames/{identifier(fid)}"))
+        frame = frame.get("frame", frame)
+        if cid not in frame.get("collection_ids", []):
+            assets, groups = [], []
+    fid = frame.get("id", "collection")
+    settings = DEFAULT_SETTINGS | config.get("settings", config) | frame.get("settings", {})
+    width, height = parse_aspect_ratio(settings.get("target_aspect_ratio", "16:9"))
+    profile = {"id": fid, "name": frame.get("name", "Collection preview"),
+               "width": settings.get("width", width), "height": settings.get("height", height)}
+    data = {"frame_id": fid, "assets": [a for a in assets if a.get("metadata", {}).get("enabled", True)],
+            "groups": groups, "collection_settings": {cid: config.get("settings", config)},
+            "settings": frame.get("settings", {})}
+    return data, profile
+
+
+@display_pages.get("/api/gallery/display-slides")
+@display_pages.get("/api/gallery/display-slides/<display_id>")
+def gallery_display_slides(display_id=None):
+    data, profile = gallery_presentation(display_id)
+    manual = {g["id"] for g in data["groups"]}
+    items = [{"id": s["id"], "filenames": s["asset_ids"],
+              "group_id": s["id"] if s["id"] in manual else None,
+              "automatic": len(s["asset_ids"]) > 1 and s["id"] not in manual,
+              "thumbnail_path": f"/api/gallery/display-thumbnails/{profile['id']}/{s['id']}"}
+             for s in slides(data)]
+    response = jsonify(slides=items, profile=profile)
+    response.headers["Cache-Control"] = "no-store, private"
+    return response
+
+
+@display_pages.get("/api/gallery/display-thumbnails/<display_id>/<slide_id>")
+def gallery_display_thumbnail(display_id, slide_id):
+    identifier(display_id)
+    identifier(slide_id)
+    data, _ = gallery_presentation(display_id)
+    slide = next((s for s in slides(data) if s["id"] == slide_id), None)
+    if slide is None:
+        abort(404)
+    response = render(data, slide, thumbnail=True)
+    response.headers["Cache-Control"] = "no-store, private"
+    return response
+
+
+def render(data, slide, thumbnail=False):
     from release_backend.security import rate_limit
 
     rate_limit("render", data["frame_id"], limit=120)
@@ -342,7 +394,11 @@ def render(data, slide):
                 size,
             )
         output = io.BytesIO()
-        image.convert("RGB").save(output, format="JPEG", quality=88)
+        image = image.convert("RGB")
+        if thumbnail:
+            # Downsample the completed display so bevel/mat geometry stays identical.
+            image.thumbnail((400, 400), Image.Resampling.LANCZOS)
+        image.save(output, format="JPEG", quality=88)
     from flask import Response
 
     return Response(output.getvalue(), mimetype="image/jpeg")

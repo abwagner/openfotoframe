@@ -240,6 +240,8 @@
             <div class="toolbar">
                 <div class="toolbar-left">
                     <button class="btn btn-upload" data-onclick="triggerFileInput()">📤 Upload</button>
+                    <button class="btn btn-edit" id="gallery-source-toggle" data-onclick="toggleGallerySource()">Show originals</button>
+                    <select id="gallery-display-picker" aria-label="Preview display" data-onchange="selectGalleryDisplay(this.value)"></select>
                     <button class="btn btn-group" id="start-group" data-onclick="startGroupMode()">📐 Group</button>
                     <button class="btn btn-warning" id="done-group" data-onclick="finishGroupMode()" style="display:none;">Done</button>
                     <span class="selection-count" id="selection-count-wrapper" style="display:none;"><span id="selected-count">0</span> selected</span>
@@ -265,6 +267,7 @@
             </div>
 
             <!-- Gallery Grid -->
+            <p id="gallery-presentation-note" role="status"></p>
             <div class="gallery-grid" id="gallery-grid"></div>
 
             <div class="empty-state" id="empty-state" style="display: none;">

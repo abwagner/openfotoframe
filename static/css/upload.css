@@ -736,6 +736,9 @@
             object-fit: cover;
         }
 
+        .display-slide-thumb img { object-fit: contain; }
+        #gallery-presentation-note { color: var(--text-secondary, #777); padding: 0 4px; }
+
         .status-badge {
             position: absolute;
             top: 8px;

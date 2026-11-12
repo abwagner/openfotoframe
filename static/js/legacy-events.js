@@ -6,7 +6,7 @@
         'finishGroupMode','handleCardClick','moveGroupImage','nextSlide','openGroupPreview',
         'openSettingsModal','previousSlide','proceedUpload','refreshPreview','removeTvSchedule',
         'resetPassword','saveBackupSettings','showResetPassword','startGroupMode',
-        'switchSettingsTab','testCec','toggleGalleryView','toggleImage','toggleMoreColors',
+        'switchSettingsTab','testCec','toggleGalleryView','toggleGallerySource','selectGalleryDisplay','selectEditorDisplay','openPreview','toggleImage','toggleMoreColors',
         'enterFullscreen','exitFullscreen','toggleFullscreen','togglePause','toggleScheduleDay','toggleSelect','triggerBackup','triggerFileInput','updateCropAspectLock','updateCropAspectRatio','updateCropPreviewZoom',
         'triggerRestore','ungroupFromPreview','ungroupGroup','updateGroupField',
         'updateGroupMatColor','updateGroupScale','updateGroupScalePreview','toggleDisplayProfile','updateImageField',

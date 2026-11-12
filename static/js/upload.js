@@ -147,6 +147,12 @@
         // ===== State =====
         let images = [];
         let groups = {};  // group_id -> {images: [...], mat_color, created_at}
+        let displayedGallery = true;
+        let displayedSlides = null;
+        let displayedProfile = null;
+        let displayedError = null;
+        let displayedRequest = 0;
+        let galleryDisplayId = null;
         let displayProfiles = [];
         let activeDisplayId = null;
         let selectedImages = new Set();
@@ -368,6 +374,10 @@
             displayProfiles = data.displays || [];
             renderDisplayProfiles();
             activeDisplayId = (displayProfiles.find(d => d.active) || displayProfiles[0] || {}).id || null;
+            const picker = document.getElementById('gallery-display-picker');
+            picker.innerHTML = '<option value="">Current display / collection</option>' + displayProfiles.map(d => `<option value="${escAttr(d.id)}">${escAttr(d.name)}</option>`).join('');
+            picker.value = galleryDisplayId || '';
+            picker.hidden = displayProfiles.length < 2;
         }
 
         let displayContentEditor = null;
@@ -410,6 +420,7 @@
                 const data = await response.json();
                 images = data.images;
                 groups = data.groups || {};
+                await loadDisplayedSlides();
                 renderGallery();
                 updateStats();
             } catch (err) {
@@ -417,7 +428,73 @@
             }
         }
 
+        async function loadDisplayedSlides() {
+            const generation = ++displayedRequest;
+            try {
+                const suffix = galleryDisplayId ? '/' + encodeURIComponent(galleryDisplayId) : '';
+                const response = await fetch('/api/gallery/display-slides' + suffix);
+                if (!response.ok) throw new Error('Display previews are unavailable. You can still edit original photos.');
+                const data = await response.json();
+                if (generation !== displayedRequest) return;
+                displayedSlides = data.slides;
+                displayedProfile = data.profile;
+                displayedError = null;
+            } catch (error) {
+                if (generation !== displayedRequest) return;
+                displayedSlides = null;
+                displayedError = error.message;
+            }
+        }
+
+        function toggleGallerySource() {
+            if (selectMode) exitSelectMode();
+            if (currentFilter === 'disabled') {
+                currentFilter = 'all';
+                displayedGallery = true;
+                document.querySelectorAll('.filter-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.filter === 'all'));
+            } else displayedGallery = !displayedGallery;
+            renderGallery();
+        }
+
+        async function selectGalleryDisplay(id) {
+            galleryDisplayId = id || null;
+            if (id) activeDisplayId = id;
+            displayedSlides = null;
+            displayedError = null;
+            renderGallery();
+            await loadDisplayedSlides();
+            renderGallery();
+        }
+
+        function renderDisplayedGallery() {
+            const note = document.getElementById('gallery-presentation-note');
+            if (displayedError) {
+                note.textContent = displayedError;
+                galleryGrid.innerHTML = '';
+                return;
+            }
+            const slides = displayedSlides || [];
+            note.textContent = `${slides.length} displayed slides · ${displayedProfile?.name || 'Frame'} · Includes automatic pairs, crops, and mats. Use originals to manage individual photos.`;
+            galleryGrid.style.display = 'grid';
+            emptyState.style.display = 'none';
+            galleryGrid.innerHTML = slides.map(slide => {
+                const label = slide.automatic ? 'Automatic pair' : slide.group_id ? 'Photo group' : 'Photo';
+                const edit = slide.group_id
+                    ? `<button class="btn btn-edit" data-onclick="openGroupPreview('${escAttr(slide.group_id)}')">Edit group</button>`
+                    : slide.filenames.map((name, index) => `<button class="btn btn-edit" data-onclick="openPreview('${escAttr(name)}')">Edit${slide.filenames.length > 1 ? ' photo ' + (index + 1) : ' photo'}</button>`).join('');
+                const names = slide.filenames.map(name => escAttr(images.find(image => image.filename === name)?.title || cleanFilename(name)));
+                return `<div class="image-card"><div class="card-thumb display-slide-thumb" style="aspect-ratio:${Number(displayedProfile?.width) || 16}/${Number(displayedProfile?.height) || 9}"><img src="${escAttr(slide.thumbnail_path)}" alt="${escAttr(label)}" loading="lazy"></div><div class="card-info"><div class="card-filename">${escAttr(label)}</div><div class="card-meta">${names.join(' · ')}</div><div class="card-actions">${edit}</div></div></div>`;
+            }).join('');
+        }
+
         function renderGallery() {
+            const showingSlides = displayedGallery && currentFilter !== 'disabled' && !selectMode;
+            document.getElementById('gallery-source-toggle').textContent = showingSlides ? 'Show originals' : 'Show displayed slides';
+            document.getElementById('gallery-presentation-note').textContent = '';
+            if (showingSlides) {
+                renderDisplayedGallery();
+                return;
+            }
             const grid = galleryGrid;
 
             // Build set of grouped filenames
@@ -1346,12 +1423,14 @@
         }
 
         function startGroupMode() {
+            displayedGallery = false;
             selectMode = true;
             document.body.classList.add('select-mode');
             document.getElementById('start-group').style.display = 'none';
             document.getElementById('done-group').style.display = '';
             document.querySelector('.toolbar-right').style.display = '';
             document.getElementById('selection-count-wrapper').style.display = '';
+            renderGallery();
         }
 
         function exitSelectMode() {
@@ -1881,6 +1960,8 @@
                 if (!response.ok) throw new Error(`Request failed (${response.status})`);
                 // Re-render preview
                 if (previewFilename === filename) renderSinglePreviewImage(filename);
+                await loadDisplayedSlides();
+                renderGallery();
                 showStatus(`${field.replace('_', ' ')} updated`, 'success');
                 return true;
             } catch (err) {
@@ -1891,6 +1972,9 @@
 
         function selectEditorDisplay(id, filename) {
             activeDisplayId = id;
+            galleryDisplayId = id;
+            document.getElementById('gallery-display-picker').value = id;
+            loadDisplayedSlides().then(renderGallery);
             renderSinglePreviewImage(filename);
             renderSingleControls(filename);
         }
@@ -1898,9 +1982,11 @@
             if (!activeDisplayId) return;
             const img = images.find(i => i.filename === filename);
             if (img) { img.display_overrides ||= {}; img.display_overrides[activeDisplayId] = { ...(img.display_overrides[activeDisplayId] || {}), ...updates }; }
-            const response = await fetch(`/api/gallery//displays/`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
+            const response = await fetch(`/api/gallery/${encodeURIComponent(filename)}/displays/${encodeURIComponent(activeDisplayId)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
             if (!response.ok) throw new Error("Could not save display override");
             renderSinglePreviewImage(filename);
+            await loadDisplayedSlides();
+            renderGallery();
         }
         async function rotateForDisplay(filename, delta) {
             const img = images.find(i => i.filename === filename);

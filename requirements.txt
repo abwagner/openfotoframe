@@ -6,7 +6,7 @@ bcrypt==5.0.0
 Flask-WTF==1.2.2
 imagehash==4.3.2
 pytest==9.0.3
-gunicorn==25.3.0
+gunicorn==27.0.1
 PyOTP==2.10.0
 cryptography==49.0.0
 webauthn==3.0.0

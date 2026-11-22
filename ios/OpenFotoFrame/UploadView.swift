@@ -10,8 +10,11 @@ struct UploadView: View {
     @State private var busy = false
     @State private var importing = false
     @State private var status = ""
-    @State private var reviewed = false
     @State private var web: WebDestination?
+
+    private var allPhotosChecked: Bool {
+        !files.isEmpty && files.allSatisfy { checks[$0.name] != nil }
+    }
 
     var body: some View {
         List {
@@ -19,7 +22,7 @@ struct UploadView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Image(systemName: "photo.badge.plus").font(.system(size: 42)).foregroundStyle(.teal)
                     Text("Make room for new memories.").font(.title2.bold())
-                    Text("Choose photos, review duplicate and resolution warnings, then send them to your frame.")
+                    Text("Choose photos to check them automatically for duplicates and low resolution, then review and upload.")
                         .foregroundStyle(.secondary)
                 }.padding(.vertical, 16)
                 PhotosPicker(selection: $pickerItems, maxSelectionCount: 10, matching: .images) {
@@ -43,8 +46,10 @@ struct UploadView: View {
                                 }
                                 Spacer()
                                 Button(role: .destructive) {
+                                    let wasUnchecked = !allPhotosChecked
                                     files.removeAll { $0.id == file.id }
                                     checks.removeValue(forKey: file.name)
+                                    if wasUnchecked && (files.isEmpty || allPhotosChecked) { status = "" }
                                 } label: { Image(systemName: "xmark.circle") }.buttonStyle(.borderless).accessibilityLabel("Remove \(file.name)")
                             }
                             if let check = checks[file.name] {
@@ -69,10 +74,15 @@ struct UploadView: View {
                     Text("Each photo must be under 49 MB. HEIC photos are converted to JPEG for the frame. Existing supported formats are preserved.")
                 }
                 Section {
-                    Button(reviewed ? "Upload \(files.count) Photos" : "Check for Duplicates") {
-                        Task { if reviewed { await upload() } else { await check() } }
-                    }.font(.headline)
-                    if reviewed { Text("You can upload similar or low-resolution photos if you want to keep them.").font(.footnote).foregroundStyle(.secondary) }
+                    Button("Upload \(files.count) Photos") {
+                        Task { await upload() }
+                    }.font(.headline).disabled(!allPhotosChecked)
+                    if allPhotosChecked && files.contains(where: { file in
+                        checks[file.name].map { $0.lowResolution || !$0.matches.isEmpty } ?? false
+                    }) {
+                        Text("You can upload similar or low-resolution photos if you want to keep them.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
             }
             if let release = session.release {
@@ -96,10 +106,10 @@ struct UploadView: View {
         }
     }
 
-    private func reset() { files = []; checks = [:]; reviewed = false; status = "" }
+    private func reset() { files = []; checks = [:]; status = "" }
 
     private func prepare(_ items: [PhotosPickerItem]) async {
-        guard !items.isEmpty else { return }
+        guard !items.isEmpty, !busy else { return }
         reset()
         busy = true
         defer { busy = false; pickerItems = [] }
@@ -109,17 +119,20 @@ struct UploadView: View {
                 guard let data = try await item.loadTransferable(type: Data.self) else { throw FrameError.message("A selected photo could not be read. Download it from iCloud and try again.") }
                 try append(data, name: "Photo-\(index + 1)-\(UUID().uuidString.prefix(6))")
             }
-            status = "Review \(files.count) photos before uploading."
         }
+        await checkStagedPhotos()
     }
 
     private func importFiles(_ result: Result<[URL], Error>) async {
+        guard !busy else { return }
         busy = true
         defer { busy = false }
+        var replacedSelection = false
         await session.perform {
             let urls = try result.get()
             guard urls.count <= 10 else { throw FrameError.message("Choose up to 10 photos at a time.") }
             reset()
+            replacedSelection = true
             for (index, url) in urls.enumerated() {
                 status = "Reading photo \(index + 1) of \(urls.count)…"
                 let access = url.startAccessingSecurityScopedResource()
@@ -129,8 +142,8 @@ struct UploadView: View {
                 let data = try Data(contentsOf: url)
                 try append(data, name: "\(index + 1)-\(url.deletingPathExtension().lastPathComponent)")
             }
-            status = "Review \(files.count) photos before uploading."
         }
+        if replacedSelection { await checkStagedPhotos() }
     }
 
     private func append(_ data: Data, name: String) throws {
@@ -141,22 +154,23 @@ struct UploadView: View {
         files.append(file)
     }
 
-    private func check() async {
-        busy = true
-        defer { busy = false }
+    private func checkStagedPhotos() async {
+        guard !files.isEmpty else { status = ""; return }
         await session.perform {
             for (index, file) in files.enumerated() {
                 status = "Checking photo \(index + 1) of \(files.count)…"
                 let result = try FrameJSON.decode(DuplicateCheck.self, from: await session.upload(file, checkOnly: true))
-                // Multipart uses sanitized names; generated names are sanitized below too.
-                checks[file.name] = result.results[file.name]
+                guard let check = result.results[file.name] else {
+                    throw FrameError.message("The server did not return a duplicate check for \(file.name).")
+                }
+                checks[file.name] = check
             }
-            reviewed = true
-            status = "Checks complete. Review any warnings below."
         }
+        status = allPhotosChecked ? "" : "Couldn’t finish checking. Choose the photos again to retry, or remove unchecked photos."
     }
 
     private func upload() async {
+        guard !busy, allPhotosChecked else { return }
         busy = true
         defer { busy = false }
         let pending = files
@@ -167,6 +181,7 @@ struct UploadView: View {
                 let result = try FrameJSON.decode(UploadResult.self, from: await session.upload(file, checkOnly: false))
                 guard !result.uploaded.isEmpty else { throw FrameError.message(result.errors.joined(separator: "\n")) }
                 files.removeAll { $0.id == file.id }
+                checks.removeValue(forKey: file.name)
                 completed += result.uploaded.count
             }
         }

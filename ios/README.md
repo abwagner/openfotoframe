@@ -46,7 +46,7 @@ Simulator builds can continue using `CODE_SIGNING_ALLOWED=NO` without a team.
 | Web functionality | In the iOS app |
 | --- | --- |
 | Login, first-login password change, MFA challenge, recovery codes | Shared authenticated web sign-in before native screens become available |
-| Photo library and file uploads | Native Upload tab, up to 10 photos per batch; HEIC conversion to JPEG |
+| Photo library and file uploads | Native Upload tab, up to 10 photos per batch; HEIC conversion to JPEG; automatic duplicate and resolution checks after selection |
 | Duplicate comparisons and low-resolution warnings | Native preflight review, with thumbnails of similar photos, before upload |
 | Gallery, visibility filters, metadata | Native searchable grid and photo details |
 | Show/hide/delete, bulk operations | Native photo controls and Select mode with deletion confirmation |

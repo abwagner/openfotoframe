@@ -7,7 +7,7 @@ Flask-WTF==1.2.2
 imagehash==4.3.2
 pytest==9.0.3
 gunicorn==25.3.0
-PyOTP==2.10.0
+PyOTP==2.12.1
 cryptography==49.0.0
 webauthn==3.0.0
 qrcode==7.4.2

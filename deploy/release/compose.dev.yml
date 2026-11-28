@@ -33,7 +33,12 @@ services:
     <<: *runtime
     command: [python, scripts/release_worker.py, --supervise, --poll-seconds, "5"]
     networks: [private]
-    healthcheck: {disable: true}
+    healthcheck:
+      test: [CMD, python, scripts/release_worker.py, --check-heartbeat, --poll-seconds, "5"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
     cpus: 0.5
 networks:
   private:

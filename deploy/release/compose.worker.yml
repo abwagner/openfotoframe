@@ -8,7 +8,11 @@ services:
       - ${RELEASE_WORKER_ENV_FILE:?Use a private worker environment file}
     restart: unless-stopped
     healthcheck:
-      disable: true
+      test: [CMD, python, scripts/release_worker.py, --check-heartbeat, --poll-seconds, "5"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
     volumes:
       - release-worker-data:/data
     read_only: true

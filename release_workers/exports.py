@@ -149,12 +149,14 @@ class Dispatcher:
             return True
 
 
-def run_once(app, dispatcher):
+def run_once(app, dispatcher, *, on_claim=None):
     job = dispatcher.claim()
     if not job:
         return False
     success = False
     try:
+        if on_claim is not None:
+            on_claim()
         if job["action"] == "cleanup":
             # A generated key is the only permitted deletion. Do not trust a
             # path/result key supplied through a queue row or client payload.
